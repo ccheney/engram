@@ -6,6 +6,7 @@
     "@the-soul/execution-core": "workspace:*",
     "@the-soul/wassette": "workspace:*",
     "@the-soul/vfs": "workspace:*",
+    "@the-soul/storage": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.24.3",
     "zod": "^4.1.13"
   },

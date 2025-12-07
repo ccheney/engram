@@ -34,6 +34,7 @@
         "@modelcontextprotocol/sdk": "^1.24.3",
         "@the-soul/execution-core": "workspace:*",
         "@the-soul/logger": "workspace:*",
+        "@the-soul/storage": "workspace:*",
         "@the-soul/vfs": "workspace:*",
         "@the-soul/wassette": "workspace:*",
         "zod": "^4.1.13",

@@ -1,11 +1,12 @@
 {
-  "extends": "@the-soul/tsconfig/base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "types": ["bun-types"],
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+	"extends": "@the-soul/tsconfig/base.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "dist",
+		"baseUrl": ".",
+		"types": ["bun-types"],
+		"skipLibCheck": true
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist"]
 }

@@ -1,9 +1,10 @@
 {
-  "extends": "@the-soul/tsconfig/base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist"
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+	"extends": "@the-soul/tsconfig/base.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "dist",
+		"baseUrl": "."
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist"]
 }

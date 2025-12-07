@@ -1,4 +1,5 @@
 export * from "./graph";
+export * from "./merger";
 export * from "./models/base";
 export * from "./models/edges";
 export * from "./models/nodes";

@@ -52,11 +52,14 @@ export class SearchIndexer {
     };
 
     // Upsert
+    // Qdrant JS client structure for point:
+    // { id, vector: { name: vector }, payload }
     await this.client.upsert(this.collectionName, {
         points: [
             {
                 id: node.id, // Use Node ID as Point ID (must be UUID)
-                vectors: {
+                // Named vectors map
+                vector: {
                     dense: denseVector,
                     sparse: sparseVector
                 },

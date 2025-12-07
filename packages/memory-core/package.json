@@ -5,7 +5,8 @@
   "types": "./src/index.ts",
   "devDependencies": {
     "typescript": "^5.9.3",
-    "@types/node": "^24.10.1"
+    "@types/node": "^24.10.1",
+    "@the-soul/tsconfig": "workspace:*"
   },
   "dependencies": {
     "zod": "^4.1.13",
@@ -14,6 +15,7 @@
     "@the-soul/storage": "workspace:*"
   },
   "scripts": {
-    "build": "echo 'Build success'"
+    "build": "echo 'Build success'",
+    "typecheck": "tsc --noEmit"
   }
 }

@@ -5,13 +5,15 @@
   "types": "./src/index.ts",
   "devDependencies": {
     "typescript": "^5.9.3",
-    "@types/node": "^24.10.1"
+    "@types/node": "^24.10.1",
+    "@the-soul/tsconfig": "workspace:*"
   },
   "dependencies": {
     "kafkajs": "^2.2.4",
     "redis": "^5.10.0"
   },
   "scripts": {
-    "build": "echo 'Build success'"
+    "build": "echo 'Build success'",
+    "typecheck": "tsc --noEmit"
   }
 }

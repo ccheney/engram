@@ -49,7 +49,7 @@ export class Executor {
     });
 
     // Race with Timeout
-    let timeoutHandle: Timer;
+    let timeoutHandle: NodeJS.Timeout;
     const timeoutPromise = new Promise<{ stdout: string; stderr: string; exitCode: number }>((_, reject) => {
         timeoutHandle = setTimeout(() => {
             reject(new Error(`Execution timed out after ${this.config.timeoutMs}ms`));

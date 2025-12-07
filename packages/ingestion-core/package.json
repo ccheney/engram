@@ -5,13 +5,16 @@
   "types": "./src/index.ts",
   "devDependencies": {
     "typescript": "^5.9.3",
-    "@types/node": "^24.10.1"
+    "@types/node": "^24.10.1",
+    "@the-soul/tsconfig": "workspace:*",
+    "@types/google-libphonenumber": "^7.4.30"
   },
   "dependencies": {
     "google-libphonenumber": "^3.2.43",
     "@the-soul/events": "workspace:*"
   },
   "scripts": {
-    "build": "echo 'Build success'"
+    "build": "echo 'Build success'",
+    "typecheck": "tsc --noEmit"
   }
 }

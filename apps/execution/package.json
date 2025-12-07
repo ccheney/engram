@@ -9,7 +9,12 @@
     "@modelcontextprotocol/sdk": "^1.24.3",
     "zod": "^4.1.13"
   },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@the-soul/tsconfig": "workspace:*"
+  },
   "scripts": {
-    "build": "echo 'Build success'"
+    "build": "echo 'Build success'",
+    "typecheck": "tsc --noEmit"
   }
 }

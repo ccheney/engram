@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-export const validate = (schema: z.ZodSchema) => async (req: Request, next: (data: any) => Promise<NextResponse>) => {
+export const validate = (schema: z.ZodSchema<any>) => async (req: Request, next: (data: any) => Promise<NextResponse>) => {
   try {
       const body = await req.json();
       const parsed = schema.safeParse(body);

@@ -1,16 +1,10 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { xai } from "@ai-sdk/xai";
 import { generateText } from "ai";
 import { createActor, fromPromise } from "xstate";
 import type { ContextAssembler } from "../context/assembler";
 import { type AgentContext, agentMachine } from "../state/machine";
 import type { MultiMcpAdapter } from "../tools/mcp_client";
 import { createNodeLogger } from "@the-soul/logger";
-
-const xai = createOpenAI({
-  name: 'xai',
-  baseURL: 'https://api.x.ai/v1',
-  apiKey: process.env.XAI_API_KEY,
-});
 
 const model = xai("grok-4-1-fast-reasoning");
 const logger = createNodeLogger({ service: "control-service", component: "decision-engine" });

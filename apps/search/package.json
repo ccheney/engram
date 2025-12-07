@@ -1,0 +1,8 @@
+{
+  "name": "search-service",
+  "version": "0.0.0",
+  "dependencies": {
+    "@the-soul/logger": "workspace:*",
+    "@the-soul/storage": "workspace:*"
+  }
+}

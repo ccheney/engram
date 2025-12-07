@@ -1,0 +1,8 @@
+{
+  "name": "ingestion-service",
+  "version": "0.0.0",
+  "dependencies": {
+    "@the-soul/logger": "workspace:*",
+    "@the-soul/events": "workspace:*"
+  }
+}

@@ -40,8 +40,10 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 		const timeline = [];
 		if (Array.isArray(result)) {
 			for (const row of result) {
-				if (row[0]) {
-					timeline.push(row[0].properties);
+				const node = row[0];
+				if (node && node.properties) {
+					// Ensure we have an object
+					timeline.push({ ...node.properties, id: node.properties.id || node.id });
 				}
 			}
 		}

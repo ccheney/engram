@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "dependencies": {
     "@the-soul/logger": "workspace:*",
-    "@the-soul/storage": "workspace:*"
+    "@the-soul/storage": "workspace:*",
+    "@the-soul/memory-core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^0.6.0"
   }
 }

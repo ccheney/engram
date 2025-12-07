@@ -1,0 +1,27 @@
+steps:
+  # 1. Install dependencies
+  - name: 'oven/bun:1'
+    entrypoint: 'bun'
+    args: ['install', '--frozen-lockfile']
+
+  # 2. Lint & Test
+  - name: 'oven/bun:1'
+    entrypoint: 'bun'
+    args: ['run', 'turbo', 'run', 'test', 'lint']
+
+  # 3. Build & Push Ingestion Service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/soul-repo/ingestion:latest', '-f', 'apps/ingestion/Dockerfile', '.']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/soul-repo/ingestion:latest']
+
+  # 4. Deploy to Cloud Run (Ingestion)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: ['run', 'deploy', 'ingestion', '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/soul-repo/ingestion:latest', '--region', 'us-central1', '--platform', 'managed']
+
+  # (Repeat similar steps for memory, search, execution as needed, or use matrix builds if supported or separate triggers)
+
+options:
+  logging: CLOUD_LOGGING_ONLY

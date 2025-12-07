@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.1
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --check=false
+    ports:
+      - "18081:8081"
+      - "9092:9092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy: true'"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - falkor-data:/data
+    # Redis usually doesn't have a built-in healthcheck script in the image without installing tools,
+    # but we can try redis-cli if available, or just rely on port open.
+    healthcheck:
+       test: ["CMD", "redis-cli", "ping"]
+       interval: 5s
+       timeout: 3s
+       retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__ENABLE_TLS=false
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:6333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redpanda-data:
+  falkor-data:
+  qdrant-data:

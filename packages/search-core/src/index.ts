@@ -1,4 +1,6 @@
 export * from "./models/schema";
+export * from "./services/batch-indexer";
+export * from "./services/classifier";
 export * from "./services/code-embedder";
 export * from "./services/indexer";
 export * from "./services/reranker";

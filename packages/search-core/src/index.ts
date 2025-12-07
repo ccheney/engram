@@ -1,3 +1,4 @@
+export * from "./config";
 export * from "./models/schema";
 export * from "./services/batch-indexer";
 export * from "./services/classifier";

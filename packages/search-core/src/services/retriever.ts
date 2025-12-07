@@ -1,4 +1,5 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { DEFAULT_SEARCH_CONFIG } from "../config";
 import type { SearchQuery } from "../models/schema";
 import { TextEmbedder } from "./text-embedder";
 
@@ -13,7 +14,15 @@ export class SearchRetriever {
   }
 
   async search(query: SearchQuery) {
-    const { text, limit = 10, strategy, filters } = query;
+    const {
+      text,
+      limit = DEFAULT_SEARCH_CONFIG.limits.defaultResults,
+      strategy,
+      filters,
+      threshold,
+    } = query;
+    const effectiveThreshold = threshold ?? DEFAULT_SEARCH_CONFIG.minScore[strategy];
+
     const vector = await this.textEmbedder.embedQuery(text);
 
     // Build Filter
@@ -41,13 +50,13 @@ export class SearchRetriever {
         filter: Object.keys(filter).length > 0 ? filter : undefined,
         limit,
         with_payload: true,
+        score_threshold: effectiveThreshold,
       });
 
       if (strategy === "dense") return denseResults;
 
       // If hybrid, we would also do sparse search and fuse.
-      // For V1, we return dense results.
-      // Implementation of RRF fusion would go here.
+      // For V1, we return dense results filtered by threshold.
       return denseResults;
     }
 

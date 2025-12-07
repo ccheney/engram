@@ -11,7 +11,8 @@
   "dependencies": {
     "zod": "^4.1.13",
     "@huggingface/transformers": "^3.8.1",
-    "@qdrant/js-client-rest": "^1.16.2"
+    "@qdrant/js-client-rest": "^1.16.2",
+    "p-queue": "^8.0.1"
   },
   "scripts": {
     "build": "echo 'Build success'",

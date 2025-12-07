@@ -4,6 +4,7 @@ import type { NextResponse } from "next/server";
 import type { z } from "zod";
 import { apiError, apiSuccess } from "@lib/api-response";
 import { UserRole, withRole } from "@lib/rbac";
+import { withTelemetry } from "@lib/telemetry";
 import { validate } from "@lib/validate";
 
 // Initialize Kafka
@@ -20,7 +21,7 @@ export const _IngestBody = RawStreamEventSchema;
  * @response 401:object:Unauthorized
  * @response 403:object:Forbidden
  */
-export const POST = withRole(UserRole.SYSTEM)(async (req: Request) => {
+export const POST = withTelemetry(withRole(UserRole.SYSTEM)(async (req: Request) => {
 	// Cast the schema to z.ZodSchema<unknown> for the validate helper,
 	// but rely on the inner inference for data usage.
 	// validate() ensures runtime structure.
@@ -37,4 +38,4 @@ export const POST = withRole(UserRole.SYSTEM)(async (req: Request) => {
             return apiError(`Ingestion failed: ${message}`, "KAFKA_ERROR", 500);
         }
 	});
-});
+}));

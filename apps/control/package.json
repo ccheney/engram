@@ -9,7 +9,8 @@
     "@mastra/core": "^0.24.6",
     "zod": "^3.23.4",
     "ai": "^3.0.0",
-    "xstate": "^5.19.0"
+    "xstate": "^5.19.0",
+    "@modelcontextprotocol/sdk": "^1.24.3"
   },
   "devDependencies": {
     "bun-types": "^1.1.6",

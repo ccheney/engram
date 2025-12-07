@@ -1,52 +1,95 @@
-import { createMachine } from "xstate";
+import { assign, createMachine } from "xstate";
+
+export interface AgentContext {
+  sessionId: string;
+  input: string;
+  contextString?: string;
+  thoughts: string[];
+  // Using unknown instead of any where possible, but keeping arrays flexible
+  // biome-ignore lint/suspicious/noExplicitAny: Tool calls structure varies
+  currentToolCalls: any[];
+  // biome-ignore lint/suspicious/noExplicitAny: Tool outputs vary
+  toolOutputs: any[];
+  finalResponse?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: History structure varies
+  history: any[];
+}
 
 export const agentMachine = createMachine({
   id: "agent",
   initial: "idle",
   context: {
-    // Context data structure
     sessionId: "",
     input: "",
     thoughts: [],
+    currentToolCalls: [],
+    toolOutputs: [],
     history: [],
-  },
+  } as AgentContext,
   states: {
     idle: {
       on: {
-        START: { target: "analyzing", actions: "assignInput" },
+        START: {
+          target: "analyzing",
+          actions: "assignInput",
+        },
       },
     },
     analyzing: {
-      // Query Memory/Search
       invoke: {
         src: "fetchContext",
-        onDone: { target: "deliberating" },
-        onError: { target: "idle" }, // Simplified error handling
+        input: ({ context }) => context, // Pass context as input to actor
+        onDone: {
+          target: "deliberating",
+          actions: assign(({ event }) => ({
+            contextString: event.output.contextString,
+          })),
+        },
+        onError: { target: "idle" },
       },
     },
     deliberating: {
-      // Generate thought
       invoke: {
         src: "generateThought",
-        onDone: [{ target: "acting", guard: "requiresTool" }, { target: "responding" }],
+        input: ({ context }) => context,
+        onDone: [
+          {
+            target: "acting",
+            guard: "requiresTool",
+            actions: assign(({ event }) => ({
+              thoughts: event.output.thought ? [event.output.thought] : [],
+              currentToolCalls: event.output.toolCalls || [],
+            })),
+          },
+          {
+            target: "responding",
+            actions: assign(({ event }) => ({
+              finalResponse: event.output.thought,
+            })),
+          },
+        ],
       },
     },
     acting: {
-      // Execute tool
       invoke: {
         src: "executeTool",
-        onDone: { target: "reviewing" },
-        onError: { target: "reviewing" }, // Review errors too
+        input: ({ context }) => context,
+        onDone: {
+          target: "reviewing",
+          actions: assign(({ event }) => ({
+            toolOutputs: event.output.toolOutputs,
+          })),
+        },
+        onError: { target: "reviewing" },
       },
     },
     reviewing: {
-      // Check tool output, loop back to deliberating
       always: { target: "deliberating" },
     },
     responding: {
-      // Stream response
       invoke: {
         src: "streamResponse",
+        input: ({ context }) => context,
         onDone: { target: "idle" },
       },
     },

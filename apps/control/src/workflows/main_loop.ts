@@ -1,37 +1,40 @@
 import { Step, Workflow } from "@mastra/core";
 import { z } from "zod";
 
-// V1 Scaffold Hack: Using 'any' to bypass strict type checks for 'Step' usage
-// until we have concrete Mastra 0.24 API details.
-// The error "Step only refers to a type" persists even with extension,
-// suggesting 'Step' is purely an interface in this build or imported incorrectly.
-// We'll use a plain object or a mock class that 'implements' Step if needed,
-// but for now, casting to 'any' is the fastest way to unblock the build.
+// Define step context interface for better typing
+interface StepContext {
+  context: unknown;
+}
 
-const thinkStep = {
+const thinkStep = new Step({
   id: "think",
-  execute: async ({ context }: any) => {
+  execute: async ({ context: _ }: StepContext) => {
     return { thought: "I should check the memory." };
   },
-} as any;
+});
 
-const actStep = {
+const actStep = new Step({
   id: "act",
-  execute: async ({ context }: any) => {
+  execute: async ({ context: _ }: StepContext) => {
     return { observation: "Memory says X." };
   },
-} as any;
+});
 
 // Workflow
-// Using 'any' cast for configuration to bypass triggerSchema check
 export const mainLoop = new Workflow({
   triggerSchema: z.object({
     input: z.string(),
     sessionId: z.string(),
   }),
-} as any);
+});
 
-// Add steps
-if (typeof (mainLoop as any).step === "function") {
-  (mainLoop as any).step(thinkStep).then(actStep);
+// The API for adding steps in Mastra 0.24 might be different.
+// If .step() doesn't exist on the type, we can't use it without casting.
+// To avoid 'any', we cast to a custom interface that has it (assuming runtime support).
+
+interface LegacyWorkflow {
+  step(step: Step): LegacyWorkflow;
+  then(step: Step): LegacyWorkflow;
 }
+
+(mainLoop as unknown as LegacyWorkflow).step(thinkStep).then(actStep);

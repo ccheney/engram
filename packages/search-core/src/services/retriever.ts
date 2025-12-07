@@ -1,6 +1,6 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
+import type { SearchQuery } from "../models/schema";
 import { TextEmbedder } from "./text-embedder";
-import { SearchQuery } from "../models/schema";
 
 export class SearchRetriever {
   private client: QdrantClient;
@@ -17,7 +17,7 @@ export class SearchRetriever {
     const vector = await this.textEmbedder.embedQuery(text);
 
     // Build Filter
-    const filter: any = {};
+    const filter: Record<string, unknown> = {};
     if (filters) {
       const conditions = [];
       if (filters.session_id) {

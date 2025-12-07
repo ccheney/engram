@@ -1,4 +1,4 @@
-import { SearchIndexer, SearchRetriever, SchemaManager } from "@the-soul/search-core";
+import { SchemaManager, SearchIndexer, SearchRetriever } from "@the-soul/search-core";
 import { createKafkaClient } from "@the-soul/storage";
 
 const schemaManager = new SchemaManager();
@@ -16,7 +16,7 @@ const startConsumer = async () => {
   await consumer.subscribe({ topic: "memory.node_created", fromBeginning: false });
 
   await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
+    eachMessage: async ({ topic: _topic, partition: _partition, message }) => {
       try {
         const value = message.value?.toString();
         if (!value) return;
@@ -53,8 +53,9 @@ const server = Bun.serve({
         return new Response(JSON.stringify(results), {
           headers: { "Content-Type": "application/json" },
         });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 400 });
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        return new Response(JSON.stringify({ error: message }), { status: 400 });
       }
     }
     return new Response("Not Found", { status: 404 });

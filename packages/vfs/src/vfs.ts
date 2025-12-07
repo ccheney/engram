@@ -1,5 +1,5 @@
-import * as zlib from "zlib";
-import { promisify } from "util";
+import { promisify } from "node:util";
+import * as zlib from "node:zlib";
 
 const gzip = promisify(zlib.gzip);
 const gunzip = promisify(zlib.gunzip);
@@ -49,7 +49,9 @@ export class VirtualFileSystem {
 
   public writeFile(path: string, content: string): void {
     const parts = this.splitPath(path);
-    const fileName = parts.pop()!;
+    const fileName = parts.pop() || "";
+    if (!fileName) throw new Error("Invalid path");
+
     let current = this.root;
     for (const part of parts) {
       if (!current.children[part]) {
@@ -97,7 +99,7 @@ export class VirtualFileSystem {
   }
 
   private joinPath(parts: string[]): string {
-    return "/" + parts.join("/");
+    return `/${parts.join("/")}`;
   }
 
   // Snapshot Logic

@@ -1,5 +1,5 @@
-import * as fs from "fs/promises";
-import * as path from "path";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 
 export class WasmLoader {
   private cachePath: string;
@@ -11,8 +11,9 @@ export class WasmLoader {
 
   async load(runtimeName: string): Promise<WebAssembly.Module> {
     // Check Memory Cache
-    if (this.memoryCache.has(runtimeName)) {
-      return this.memoryCache.get(runtimeName)!;
+    const cached = this.memoryCache.get(runtimeName);
+    if (cached) {
+      return cached;
     }
 
     // Check Disk Cache
@@ -22,7 +23,7 @@ export class WasmLoader {
       const module = await WebAssembly.compile(buffer);
       this.memoryCache.set(runtimeName, module);
       return module;
-    } catch (e) {
+    } catch (_e) {
       // Fetch from Registry (TODO: Implement remote fetch)
       // For now, throw
       throw new Error(`Runtime ${runtimeName} not found in ${filePath}`);

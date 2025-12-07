@@ -2,7 +2,7 @@ export class QueryBuilder {
   private matchParts: string[] = [];
   private whereParts: string[] = [];
   private returnParts: string[] = [];
-  private params: Record<string, any> = {};
+  private params: Record<string, unknown> = {};
 
   match(clause: string): this {
     this.matchParts.push(clause);
@@ -28,7 +28,7 @@ export class QueryBuilder {
       // Valid Time Constraint
       if (vt !== undefined) {
         this.whereParts.push(`(${alias}.vt_start <= $vt AND ${alias}.vt_end > $vt)`);
-        this.params["vt"] = vt;
+        this.params.vt = vt;
       }
 
       // Transaction Time Constraint
@@ -38,14 +38,14 @@ export class QueryBuilder {
       } else if (typeof tt === "number") {
         // Known at time T
         this.whereParts.push(`(${alias}.tt_start <= $tt AND ${alias}.tt_end > $tt)`);
-        this.params["tt"] = tt;
+        this.params.tt = tt;
       }
     });
 
     return this;
   }
 
-  build(): { cypher: string; params: Record<string, any> } {
+  build(): { cypher: string; params: Record<string, unknown> } {
     let cypher = `MATCH ${this.matchParts.join(", ")}`;
     if (this.whereParts.length > 0) {
       cypher += ` WHERE ${this.whereParts.join(" AND ")}`;

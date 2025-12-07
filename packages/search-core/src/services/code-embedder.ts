@@ -1,7 +1,7 @@
 import { pipeline } from "@xenova/transformers";
 
 export class CodeEmbedder {
-  private static instance: any;
+  private static instance: unknown;
   // Using a code-specific model available in Xenova hub
   // 'Xenova/all-MiniLM-L6-v2' is generic.
   // 'Xenova/nomic-embed-text-v1.5' might not exist yet in standard hub.
@@ -14,16 +14,17 @@ export class CodeEmbedder {
   private static modelName = "Xenova/multilingual-e5-small";
 
   static async getInstance() {
-    if (!this.instance) {
-      this.instance = await pipeline("feature-extraction", this.modelName);
+    if (!CodeEmbedder.instance) {
+      CodeEmbedder.instance = await pipeline("feature-extraction", CodeEmbedder.modelName);
     }
-    return this.instance;
+    return CodeEmbedder.instance;
   }
 
   async embed(code: string): Promise<number[]> {
     const extractor = await CodeEmbedder.getInstance();
     // Truncate to 512 tokens (e5-small limit) for now.
     // Real code embedding needs chunking (sliding window).
+    // @ts-expect-error: pipeline returns a function that is callable
     const output = await extractor(code.slice(0, 2000), { pooling: "mean", normalize: true });
     return Array.from(output.data);
   }

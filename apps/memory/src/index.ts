@@ -1,12 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
 import { createFalkorClient } from "@the-soul/storage";
-import { GraphWriter, QueryBuilder } from "@the-soul/memory-core";
+import { z } from "zod";
 
 // Initialize Services
 const falkor = createFalkorClient();
-const writer = new GraphWriter(falkor);
 
 // Initialize MCP Server
 const server = new McpServer({
@@ -30,9 +28,10 @@ server.tool(
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       return {
-        content: [{ type: "text", text: `Error: ${error.message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       };
     }
@@ -47,17 +46,9 @@ server.tool(
     session_id: z.string(),
     limit: z.number().optional().default(50),
   },
-  async ({ session_id, limit }) => {
+  async ({ session_id }) => {
     try {
       await falkor.connect();
-      // MATCH (s:Session {id: $id})-[:TRIGGERS|NEXT*]->(t:Thought)
-      // This is a simplification. Real history is a linked list of thoughts.
-      // (s)-[:TRIGGERS]->(t1)-[:NEXT]->(t2)...
-
-      // We need a recursive query or just find all thoughts linked to session (if we index them by session_id in properties for speed, or traverse).
-      // For V1, let's assume thoughts have a session_id property (denormalized) OR we traverse.
-      // Let's traverse.
-
       const cypher = `
             MATCH (s:Session {id: $session_id})-[:TRIGGERS]->(first:Thought)
             MATCH p = (first)-[:NEXT*0..${limit}]->(t:Thought)
@@ -69,9 +60,10 @@ server.tool(
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       return {
-        content: [{ type: "text", text: `Error: ${error.message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       };
     }

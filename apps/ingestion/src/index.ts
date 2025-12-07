@@ -1,13 +1,11 @@
-import { createKafkaClient } from "@the-soul/storage";
+import { RawStreamEventSchema } from "@the-soul/events";
 import {
-  detectProtocol,
-  Redactor,
   AnthropicParser,
   OpenAIParser,
-  StreamDelta,
+  Redactor,
+  type StreamDelta,
 } from "@the-soul/ingestion-core";
-import { RawStreamEventSchema } from "@the-soul/events";
-import { z } from "zod";
+import { createKafkaClient } from "@the-soul/storage";
 
 const kafka = createKafkaClient("ingestion-service");
 const redactor = new Redactor();
@@ -28,8 +26,8 @@ const server = Bun.serve({
         // Validate Raw Event
         const rawEvent = RawStreamEventSchema.parse(body);
 
-        // 1. Protocol Detection (if not provided in rawEvent, but schema requires it.
-        // We assume the 'provider' field is set by the gateway or we detect from payload if generic)
+        // 1. Protocol Detection
+        // We assume the 'provider' field is set by the gateway or we detect from payload if generic
         // If provider is set, we use it.
         const provider = rawEvent.provider;
 
@@ -53,11 +51,9 @@ const server = Bun.serve({
 
         // 4. Publish to Redpanda
         // Topic: parsed_events
-        // Key: session_id (need to extract from metadata or payload? RawEvent doesn't enforce session_id in root)
+        // Key: session_id
         // We assume session_id is in metadata or trace_id.
-        // For now, use event_id as key if session unknown (random partition).
-        const sessionId =
-          (rawEvent.headers && rawEvent.headers["x-session-id"]) || rawEvent.event_id;
+        const sessionId = rawEvent.headers?.["x-session-id"] || rawEvent.event_id;
 
         await kafka.sendEvent("parsed_events", sessionId, {
           ...delta,
@@ -68,9 +64,10 @@ const server = Bun.serve({
         return new Response(JSON.stringify({ status: "processed" }), {
           headers: { "Content-Type": "application/json" },
         });
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error(e);
-        return new Response(JSON.stringify({ error: e.message }), { status: 400 });
+        const message = e instanceof Error ? e.message : String(e);
+        return new Response(JSON.stringify({ error: message }), { status: 400 });
       }
     }
 

@@ -1,6 +1,6 @@
-import { FalkorClient } from "@the-soul/storage";
+import type { FalkorClient } from "@the-soul/storage";
+import type { BaseNode } from "./models/base";
 import { createBitemporal, MAX_DATE, now } from "./utils/time";
-import { BaseNode } from "./models/base";
 
 export class GraphWriter {
   constructor(private client: FalkorClient) {}
@@ -25,7 +25,7 @@ export class GraphWriter {
     fromId: string,
     toId: string,
     relationType: string,
-    props: Record<string, any> = {},
+    props: Record<string, unknown> = {},
     validFrom: number = now(),
   ): Promise<void> {
     const temporal = createBitemporal(validFrom);

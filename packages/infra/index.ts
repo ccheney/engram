@@ -1,6 +1,5 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp";
-import * as random from "@pulumi/random";
+import * as pulumi from "@pulumi/pulumi";
 
 // Create a GCP Network
 const network = new gcp.compute.Network("soul-network", {
@@ -27,17 +26,17 @@ const secretReplication = {
   auto: {},
 };
 
-const openaiKey = new gcp.secretmanager.Secret("openai-api-key", {
+const _openaiKey = new gcp.secretmanager.Secret("openai-api-key", {
   secretId: "openai-api-key",
   replication: secretReplication,
 });
 
-const anthropicKey = new gcp.secretmanager.Secret("anthropic-api-key", {
+const _anthropicKey = new gcp.secretmanager.Secret("anthropic-api-key", {
   secretId: "anthropic-api-key",
   replication: secretReplication,
 });
 
-const falkorPassword = new gcp.secretmanager.Secret("falkordb-password", {
+const _falkorPassword = new gcp.secretmanager.Secret("falkordb-password", {
   secretId: "falkordb-password",
   replication: secretReplication,
 });

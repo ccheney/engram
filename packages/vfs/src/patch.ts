@@ -1,5 +1,5 @@
-import { applyPatch, parsePatch } from "diff";
-import { VirtualFileSystem } from "./vfs";
+import { applyPatch } from "diff";
+import type { VirtualFileSystem } from "./vfs";
 
 export class PatchManager {
   constructor(private vfs: VirtualFileSystem) {}
@@ -9,7 +9,7 @@ export class PatchManager {
     let originalContent = "";
     try {
       originalContent = this.vfs.readFile(filePath);
-    } catch (e) {
+    } catch (_e) {
       // File might not exist (creation patch)
     }
 

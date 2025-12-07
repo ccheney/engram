@@ -15,7 +15,7 @@ export class FalkorClient {
     // const modules = await this.client.sendCommand(['MODULE', 'LIST']);
   }
 
-  async query(cypher: string, params: any = {}): Promise<any> {
+  async query(cypher: string, params: Record<string, unknown> = {}): Promise<unknown> {
     // GRAPH.QUERY <graph> <query> [params] --compact
     // Note: Parameter handling in raw Redis command requires specific formatting if not using a higher-level lib.
     // For V1, we might rely on string interpolation (carefully) or implement a param serializer.
@@ -25,8 +25,8 @@ export class FalkorClient {
     let queryWithParams = cypher;
     for (const [key, value] of Object.entries(params)) {
       const serialized =
-        typeof value === "string" ? `'${value.replace(/'/g, "\'")}'` : String(value);
-      queryWithParams = queryWithParams.replace(new RegExp(`\$${key}`, "g"), serialized);
+        typeof value === "string" ? `'${value.replace(/'/g, "'")}'` : String(value);
+      queryWithParams = queryWithParams.replace(new RegExp(`$${key}`, "g"), serialized);
     }
 
     return this.client.sendCommand(["GRAPH.QUERY", this.graphName, queryWithParams, "--compact"]);

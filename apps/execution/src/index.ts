@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { PatchManager, VirtualFileSystem } from "@the-soul/vfs";
+import { DEFAULT_CONFIG, Executor, SECURE_POLICY, WasmLoader } from "@the-soul/wassette";
 import { z } from "zod";
-import { Executor, DEFAULT_CONFIG, SECURE_POLICY, WasmLoader } from "@the-soul/wassette";
-import { VirtualFileSystem, PatchManager } from "@the-soul/vfs";
 
 // Initialize VFS (Tabula Rasa for now, until Rehydrator integration)
 const vfs = new VirtualFileSystem();
@@ -27,9 +27,10 @@ server.tool(
       return {
         content: [{ type: "text", text: content }],
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
       return {
-        content: [{ type: "text", text: `Error: ${e.message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       };
     }
@@ -49,9 +50,10 @@ server.tool(
       return {
         content: [{ type: "text", text: `Successfully patched ${path}` }],
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
       return {
-        content: [{ type: "text", text: `Error: ${e.message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       };
     }
@@ -65,7 +67,7 @@ server.tool(
     tool_name: z.string(),
     args_json: z.string(),
   },
-  async ({ tool_name, args_json }) => {
+  async ({ tool_name, args_json: _args_json }) => {
     try {
       // 1. Load Runtime (Python/JS)
       // For V1, assuming 'python'
@@ -82,9 +84,10 @@ server.tool(
       return {
         content: [{ type: "text", text: result.stdout }],
       };
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
       return {
-        content: [{ type: "text", text: `Error: ${e.message}` }],
+        content: [{ type: "text", text: `Error: ${message}` }],
         isError: true,
       };
     }

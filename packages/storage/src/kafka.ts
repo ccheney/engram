@@ -1,4 +1,4 @@
-import { Kafka, Producer, Consumer } from "kafkajs";
+import { type Consumer, Kafka, type Producer } from "kafkajs";
 
 export class KafkaClient {
   private kafka: Kafka;
@@ -36,7 +36,7 @@ export class KafkaClient {
    * Sends an event to a topic with a specific key to ensure partitioning order.
    * This effectively acts as the Stream Multiplexer/De-multiplexer entry point.
    */
-  public async sendEvent(topic: string, key: string, message: any): Promise<void> {
+  public async sendEvent(topic: string, key: string, message: unknown): Promise<void> {
     const producer = await this.getProducer();
     await producer.send({
       topic,

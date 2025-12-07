@@ -1,8 +1,4 @@
-import { PhoneNumberUtil } from "google-libphonenumber";
-
 export class Redactor {
-  private phoneUtil = PhoneNumberUtil.getInstance();
-
   private static PATTERNS = {
     // Basic email regex
     EMAIL: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,

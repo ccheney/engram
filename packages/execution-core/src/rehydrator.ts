@@ -1,6 +1,5 @@
-import { FalkorClient, createBlobStore } from "@the-soul/storage";
-import { VirtualFileSystem, PatchManager } from "@the-soul/vfs";
-import { MAX_DATE } from "@the-soul/memory-core";
+import { createBlobStore, type FalkorClient } from "@the-soul/storage";
+import { PatchManager, VirtualFileSystem } from "@the-soul/vfs";
 
 export class Rehydrator {
   private blobStore = createBlobStore();
@@ -9,7 +8,7 @@ export class Rehydrator {
 
   async rehydrate(sessionId: string, targetTime: number = Date.now()): Promise<VirtualFileSystem> {
     const vfs = new VirtualFileSystem();
-    const patchManager = new PatchManager(vfs);
+    const _patchManager = new PatchManager(vfs);
 
     // 1. Find latest Snapshot before targetTime
     // MATCH (s:Snapshot)-[:SNAPSHOT_OF]->(:Session {id: $id})
@@ -23,14 +22,14 @@ export class Rehydrator {
       LIMIT 1
     `;
     const snapshots = await this.falkor.query(snapshotQuery, { sessionId, targetTime });
-    let lastSnapshotTime = 0;
+    let _lastSnapshotTime = 0;
 
-    if (snapshots && snapshots.length > 0) {
+    if (snapshots && Array.isArray(snapshots) && snapshots.length > 0) {
       const snap = snapshots[0]; // Format depends on RedisGraph output structure
       // Assuming [ { "s.vfs_state_blob_ref": "...", ... } ] or similar mapped object
       // TODO: Handle RedisGraph raw response parsing
       const blobRef = snap[0];
-      lastSnapshotTime = snap[1];
+      _lastSnapshotTime = snap[1];
 
       // Load Blob
       const blobContent = await this.blobStore.read(blobRef);
@@ -49,7 +48,7 @@ export class Rehydrator {
     // (s:Session)-[:TRIGGERS]->(t:Thought)-[:NEXT*]->...-[:YIELDS]->(tc:ToolCall)-[:YIELDS]->(d:DiffHunk)?
     // Or (d:DiffHunk) related to session time.
     // Querying all diffs in time range is easiest if they have timestamps.
-    const diffQuery = `
+    const _diffQuery = `
        MATCH (d:DiffHunk)
        WHERE d.vt_start > $lastSnapshotTime AND d.vt_start <= $targetTime
        RETURN d.file_path, d.patch_content

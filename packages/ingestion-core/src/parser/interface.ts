@@ -14,5 +14,5 @@ export interface StreamDelta {
 }
 
 export interface ParserStrategy {
-  parse(payload: any): StreamDelta | null;
+  parse(payload: unknown): StreamDelta | null;
 }

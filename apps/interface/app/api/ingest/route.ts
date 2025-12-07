@@ -1,9 +1,13 @@
 import { RawStreamEventSchema } from "@the-soul/events";
+import { createKafkaClient } from "@the-soul/storage";
 import type { NextResponse } from "next/server";
 import type { z } from "zod";
-import { apiSuccess } from "../../../lib/api-response";
-import { UserRole, withRole } from "../../../lib/rbac";
-import { validate } from "../../../lib/validate";
+import { apiError, apiSuccess } from "@lib/api-response";
+import { UserRole, withRole } from "@lib/rbac";
+import { validate } from "@lib/validate";
+
+// Initialize Kafka
+const kafka = createKafkaClient("interface-service");
 
 // Zod Schema for Documentation (re-exporting or referencing)
 export const _IngestBody = RawStreamEventSchema;
@@ -23,7 +27,14 @@ export const POST = withRole(UserRole.SYSTEM)(async (req: Request) => {
 	return validate(RawStreamEventSchema as unknown as z.ZodSchema<unknown>)(req, async (data) => {
 		const event = RawStreamEventSchema.parse(data);
 		console.log("Ingesting event:", event.event_id);
-		// TODO: Push to Redpanda via Ingestion Service or direct Kafka client
-		return apiSuccess({ status: "accepted", event_id: event.event_id }, 202);
+		
+        try {
+            await kafka.sendEvent("raw_events", event.event_id, event);
+		    return apiSuccess({ status: "accepted", event_id: event.event_id }, 202);
+        } catch (e: unknown) {
+            console.error("Failed to publish to Redpanda", e);
+            const message = e instanceof Error ? e.message : String(e);
+            return apiError(`Ingestion failed: ${message}`, "KAFKA_ERROR", 500);
+        }
 	});
 });

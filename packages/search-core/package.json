@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "zod": "^3.23.4",
-    "@xenova/transformers": "^2.16.0"
+    "@xenova/transformers": "^2.16.0",
+    "@qdrant/js-client-rest": "^1.8.0"
   }
 }

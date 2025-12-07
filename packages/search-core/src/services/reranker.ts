@@ -14,7 +14,6 @@ export class Reranker {
       // 'text-classification' is appropriate for Cross-Encoders (they output a score/logit)
       // Some rerankers output a single logit (regression) or 2 logits (classification).
       // bge-reranker usually outputs a single score.
-      // @ts-expect-error - 'dtype' option is valid in newer transformers.js but types might lag or differ
       Reranker.instance = await pipeline("text-classification", Reranker.modelName, {
         dtype: "q8",
       });

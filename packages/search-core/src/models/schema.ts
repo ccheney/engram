@@ -21,13 +21,18 @@ export const VectorPointSchema = z.object({
 
 export type VectorPoint = z.infer<typeof VectorPointSchema>;
 
+// Extract the 'type' enum from VectorPointSchema to ensure consistency
+export const SearchTypeEnum = VectorPointSchema.shape.payload.shape.type;
+export type SearchType = z.infer<typeof SearchTypeEnum>;
+
 export interface SearchQuery {
   text: string;
   limit?: number;
   threshold?: number;
   filters?: {
     session_id?: string;
-    type?: "thought" | "code" | "doc"; // Updated to include 'doc' matching VectorPointSchema
+    // Use the inferred type from the schema
+    type?: SearchType;
     time_range?: { start: number; end: number };
   };
   strategy: "hybrid" | "dense" | "sparse";

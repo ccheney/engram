@@ -1,4 +1,4 @@
-import pino from "pino";
+import pino, { type DestinationStream } from "pino";
 import { mergeRedactPaths } from "./redaction";
 import type { Logger, NodeLoggerOptions, TenantContext, TraceContext } from "./types";
 
@@ -12,7 +12,10 @@ import type { Logger, NodeLoggerOptions, TenantContext, TraceContext } from "./t
  * - Pretty printing in development
  * - Structured JSON in production
  */
-export function createNodeLogger(options: NodeLoggerOptions): Logger {
+export function createNodeLogger(
+	options: NodeLoggerOptions,
+	destination?: DestinationStream,
+): Logger {
 	const {
 		service,
 		level = "info",
@@ -37,44 +40,49 @@ export function createNodeLogger(options: NodeLoggerOptions): Logger {
 			}
 		: undefined;
 
-	const logger = pino({
-		level,
-		// Custom level labels for Cloud Logging compatibility
-		formatters: {
-			level(label) {
-				// Map to Cloud Logging severity
-				const severityMap: Record<string, string> = {
-					trace: "DEBUG",
-					debug: "DEBUG",
-					info: "INFO",
-					warn: "WARNING",
-					error: "ERROR",
-					fatal: "CRITICAL",
-				};
-				return { severity: severityMap[label] || label.toUpperCase() };
+	const logger = pino(
+		{
+			level,
+			// Custom level labels for Cloud Logging compatibility
+			formatters: {
+				level(label) {
+					// Map to Cloud Logging severity
+					const severityMap: Record<string, string> = {
+						trace: "DEBUG",
+						debug: "DEBUG",
+						info: "INFO",
+						warn: "WARNING",
+						error: "ERROR",
+						fatal: "CRITICAL",
+					};
+					return { severity: severityMap[label] || label.toUpperCase() };
+				},
+				bindings(bindings) {
+					// Remove default pid/hostname, add our base context
+                    const { pid, hostname, ...rest } = bindings;
+					return {
+						service,
+						environment,
+						...(version && { version }),
+						...base,
+                        ...rest,
+					};
+				},
 			},
-			bindings(_bindings) {
-				// Remove default pid/hostname, add our base context
-				return {
-					service,
-					environment,
-					...(version && { version }),
-					...base,
-				};
+			// ISO timestamp for Cloud Logging
+			timestamp: pino.stdTimeFunctions.isoTime,
+			// Redaction for PII
+			redact: {
+				paths: mergeRedactPaths(redactPaths) as string[],
+				censor: "[REDACTED]",
 			},
+			// Transport for pretty printing in dev
+			...(transport && { transport }),
+			// Merge any custom options
+			...pinoOptions,
 		},
-		// ISO timestamp for Cloud Logging
-		timestamp: pino.stdTimeFunctions.isoTime,
-		// Redaction for PII
-		redact: {
-			paths: mergeRedactPaths(redactPaths) as string[],
-			censor: "[REDACTED]",
-		},
-		// Transport for pretty printing in dev
-		...(transport && { transport }),
-		// Merge any custom options
-		...pinoOptions,
-	});
+		destination,
+	);
 
 	return logger;
 }

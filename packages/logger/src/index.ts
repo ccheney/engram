@@ -1,9 +1,11 @@
 // Main exports for the logging package
 
+import pino from "pino";
 export { createBrowserLogger } from "./browser";
 export { childLogger, createNodeLogger, withTenantContext, withTraceContext } from "./node";
 export * from "./redaction";
 export * from "./types";
+export { pino };
 
 // Re-export legacy createLogger for backward compatibility during refactor (mapped to createNodeLogger)
 import { createNodeLogger } from "./node";

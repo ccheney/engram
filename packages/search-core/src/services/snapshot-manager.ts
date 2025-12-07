@@ -25,10 +25,10 @@ export class SnapshotManager {
 		return result;
 	}
 
-    /**
-     * Recovers the collection from a snapshot.
-     * Note: This is a destructive operation for the current state if not handled carefully.
-     * Usually involves downloading and uploading or restoring from local file.
-     * For V1, we just expose create/list.
-     */
+	/**
+	 * Recovers the collection from a snapshot.
+	 * Note: This is a destructive operation for the current state if not handled carefully.
+	 * Usually involves downloading and uploading or restoring from local file.
+	 * For V1, we just expose create/list.
+	 */
 }

@@ -47,9 +47,7 @@ export type RedactPath = (typeof DEFAULT_REDACT_PATHS)[number];
 /**
  * Merge custom redaction paths with defaults
  */
-export function mergeRedactPaths(
-	customPaths?: readonly string[],
-): readonly string[] {
+export function mergeRedactPaths(customPaths?: readonly string[]): readonly string[] {
 	if (!customPaths?.length) {
 		return DEFAULT_REDACT_PATHS;
 	}

@@ -1,21 +1,20 @@
 {
-  "name": "execution-service",
-  "version": "0.0.0",
-  "dependencies": {
-    "@the-soul/logger": "workspace:*",
-    "@the-soul/execution-core": "workspace:*",
-    "@the-soul/wassette": "workspace:*",
-    "@the-soul/vfs": "workspace:*",
-    "@the-soul/storage": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.24.3",
-    "zod": "^4.1.13"
-  },
-  "devDependencies": {
-    "@types/node": "^24.10.1",
-    "@the-soul/tsconfig": "workspace:*"
-  },
-  "scripts": {
-    "build": "echo 'Build success'",
-    "typecheck": "tsc --noEmit"
-  }
+	"name": "execution-service",
+	"version": "0.0.0",
+	"dependencies": {
+		"@the-soul/execution-core": "workspace:*",
+		"@the-soul/logger": "workspace:*",
+		"@the-soul/storage": "workspace:*",
+		"@the-soul/vfs": "workspace:*",
+		"@modelcontextprotocol/sdk": "^1.24.3",
+		"zod": "^3.25.76"
+	},
+	"devDependencies": {
+		"@types/node": "^24.10.1",
+		"@the-soul/tsconfig": "workspace:*"
+	},
+	"scripts": {
+		"build": "echo 'Build success'",
+		"typecheck": "tsc --noEmit"
+	}
 }

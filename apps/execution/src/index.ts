@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Rehydrator, TimeTravelService } from "@the-soul/execution-core";
+import { createNodeLogger } from "@the-soul/logger";
 import { createFalkorClient } from "@the-soul/storage";
 import { PatchManager, VirtualFileSystem } from "@the-soul/vfs";
-import { createNodeLogger } from "@the-soul/logger";
 import { z } from "zod";
 
-const logger = createNodeLogger({ service: "execution-service", component: "main" });
+const logger = createNodeLogger({ service: "execution-service", base: { component: "main" } });
 
 // Initialize Core Services
 const vfs = new VirtualFileSystem();
@@ -20,13 +20,19 @@ const server = new McpServer({
 	version: "1.0.0",
 });
 
-server.tool(
+const _ReadFileSchema = {
+	path: z.string(),
+};
+
+server.registerTool(
 	"read_file",
-	"Read a file from the Virtual File System",
 	{
-		path: z.string(),
+		description: "Read a file from the Virtual File System",
+		inputSchema: {
+			path: z.string(),
+		} as any,
 	},
-	async ({ path }) => {
+	(async ({ path }: { path: string }) => {
 		try {
 			const content = vfs.readFile(path);
 			return {
@@ -39,17 +45,19 @@ server.tool(
 				isError: true,
 			};
 		}
-	},
+	}) as any,
 );
 
-server.tool(
+server.registerTool(
 	"apply_patch",
-	"Apply a unified diff or search/replace block to the VFS",
 	{
-		path: z.string(),
-		diff: z.string(),
+		description: "Apply a unified diff or search/replace block to the VFS",
+		inputSchema: {
+			path: z.string(),
+			diff: z.string(),
+		} as any,
 	},
-	async ({ path, diff }) => {
+	(async ({ path, diff }: { path: string; diff: string }) => {
 		try {
 			patchManager.applyUnifiedDiff(path, diff);
 			return {
@@ -62,19 +70,29 @@ server.tool(
 				isError: true,
 			};
 		}
-	},
+	}) as any,
 );
 
 // New Tool: Time Travel
-server.tool(
+server.registerTool(
 	"list_files_at_time",
-	"List files in the VFS at a specific point in time",
 	{
-		session_id: z.string(),
-		timestamp: z.number().describe("Epoch timestamp"),
-		path: z.string().optional().default("/"),
+		description: "List files in the VFS at a specific point in time",
+		inputSchema: {
+			session_id: z.string(),
+			timestamp: z.number().describe("Epoch timestamp"),
+			path: z.string().optional().default("/"),
+		} as any,
 	},
-	async ({ session_id, timestamp, path }) => {
+	(async ({
+		session_id,
+		timestamp,
+		path,
+	}: {
+		session_id: string;
+		timestamp: number;
+		path: string;
+	}) => {
 		try {
 			await falkor.connect();
 			const files = await timeTravel.listFiles(session_id, timestamp, path);
@@ -88,7 +106,7 @@ server.tool(
 				isError: true,
 			};
 		}
-	},
+	}) as any,
 );
 
 async function main() {

@@ -1,7 +1,6 @@
+import { apiError, apiSuccess } from "@lib/api-response";
 import { createFalkorClient } from "@the-soul/storage";
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, apiSuccess } from "../../../../lib/api-response";
 
 const falkor = createFalkorClient();
 

@@ -26,12 +26,12 @@ export class Deduplicator {
 			vector: vector,
 			limit: 1,
 			score_threshold: this.threshold,
-            with_payload: true,
+			with_payload: true,
 		});
 
 		if (results.length > 0) {
-            // Double check? For now, trust the vector similarity.
-            // We could compare exact string if payload allows.
+			// Double check? For now, trust the vector similarity.
+			// We could compare exact string if payload allows.
 			return results[0].id as string;
 		}
 

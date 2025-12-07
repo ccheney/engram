@@ -1,5 +1,5 @@
 import pino from "pino";
-import type { Logger, BrowserLoggerOptions } from "./types";
+import type { BrowserLoggerOptions, Logger } from "./types";
 
 /**
  * Create a Pino logger for browser environments.
@@ -13,7 +13,9 @@ import type { Logger, BrowserLoggerOptions } from "./types";
 export function createBrowserLogger(options: BrowserLoggerOptions): Logger {
 	const {
 		service,
-		level = typeof window !== "undefined" && process.env.NODE_ENV === "development" ? "debug" : "info",
+		level = typeof window !== "undefined" && process.env.NODE_ENV === "development"
+			? "debug"
+			: "info",
 		environment = process.env.NODE_ENV || "development",
 		forwardToBackend = true,
 		logEndpoint = "/api/v1/logs/client",

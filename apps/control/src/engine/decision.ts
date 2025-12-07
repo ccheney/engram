@@ -1,13 +1,16 @@
 import { xai } from "@ai-sdk/xai";
+import { createNodeLogger } from "@the-soul/logger";
 import { generateText } from "ai";
 import { createActor, fromPromise } from "xstate";
 import type { ContextAssembler } from "../context/assembler";
 import { type AgentContext, agentMachine } from "../state/machine";
 import type { MultiMcpAdapter } from "../tools/mcp_client";
-import { createNodeLogger } from "@the-soul/logger";
 
 const model = xai("grok-4-1-fast-reasoning");
-const logger = createNodeLogger({ service: "control-service", component: "decision-engine" });
+const logger = createNodeLogger({
+	service: "control-service",
+	base: { component: "decision-engine" },
+});
 
 export class DecisionEngine {
 	private actor;
@@ -84,9 +87,9 @@ export class DecisionEngine {
 						const ctx = input as AgentContext;
 						// Simple recovery: Apologize and explain
 						const recoveryResponse = `I encountered an error while processing your request: ${ctx.error || "Unknown error"}. I'm sorry for the inconvenience.`;
-						
+
 						// Future enhancement: Try a simplified prompt or different model here.
-						
+
 						return { recoveryResponse };
 					}),
 				},

@@ -1,6 +1,6 @@
 import pino from "pino";
-import type { Logger, NodeLoggerOptions, TraceContext, TenantContext } from "./types";
 import { mergeRedactPaths } from "./redaction";
+import type { Logger, NodeLoggerOptions, TenantContext, TraceContext } from "./types";
 
 /**
  * Create a Pino logger for Node.js/Bun environments.
@@ -53,7 +53,7 @@ export function createNodeLogger(options: NodeLoggerOptions): Logger {
 				};
 				return { severity: severityMap[label] || label.toUpperCase() };
 			},
-			bindings(bindings) {
+			bindings(_bindings) {
 				// Remove default pid/hostname, add our base context
 				return {
 					service,

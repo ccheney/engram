@@ -1,19 +1,19 @@
 {
-  "name": "memory-service",
-  "version": "0.0.0",
-  "dependencies": {
-    "@the-soul/logger": "workspace:*",
-    "@the-soul/storage": "workspace:*",
-    "@the-soul/memory-core": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.24.3",
-    "zod": "^4.1.13"
-  },
-  "devDependencies": {
-    "bun-types": "^1.3.4",
-    "@the-soul/tsconfig": "workspace:*"
-  },
-  "scripts": {
-    "build": "echo 'Build success'",
-    "typecheck": "tsc --noEmit"
-  }
+	"name": "memory-service",
+	"version": "0.0.0",
+	"dependencies": {
+		"@the-soul/logger": "workspace:*",
+		"@the-soul/storage": "workspace:*",
+		"@the-soul/memory-core": "workspace:*",
+		"@modelcontextprotocol/sdk": "^1.24.3",
+		"zod": "^4.1.13"
+	},
+	"devDependencies": {
+		"bun-types": "^1.3.4",
+		"@the-soul/tsconfig": "workspace:*"
+	},
+	"scripts": {
+		"build": "echo 'Build success'",
+		"typecheck": "tsc --noEmit"
+	}
 }

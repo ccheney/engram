@@ -1,11 +1,10 @@
-import { RawStreamEventSchema } from "@the-soul/events";
-import { createKafkaClient } from "@the-soul/storage";
-import type { NextResponse } from "next/server";
-import type { z } from "zod";
 import { apiError, apiSuccess } from "@lib/api-response";
 import { UserRole, withRole } from "@lib/rbac";
 import { withTelemetry } from "@lib/telemetry";
 import { validate } from "@lib/validate";
+import { RawStreamEventSchema } from "@the-soul/events";
+import { createKafkaClient } from "@the-soul/storage";
+import type { z } from "zod";
 
 // Initialize Kafka
 const kafka = createKafkaClient("interface-service");
@@ -21,21 +20,23 @@ export const _IngestBody = RawStreamEventSchema;
  * @response 401:object:Unauthorized
  * @response 403:object:Forbidden
  */
-export const POST = withTelemetry(withRole(UserRole.SYSTEM)(async (req: Request) => {
-	// Cast the schema to z.ZodSchema<unknown> for the validate helper,
-	// but rely on the inner inference for data usage.
-	// validate() ensures runtime structure.
-	return validate(RawStreamEventSchema as unknown as z.ZodSchema<unknown>)(req, async (data) => {
-		const event = RawStreamEventSchema.parse(data);
-		console.log("Ingesting event:", event.event_id);
-		
-        try {
-            await kafka.sendEvent("raw_events", event.event_id, event);
-		    return apiSuccess({ status: "accepted", event_id: event.event_id }, 202);
-        } catch (e: unknown) {
-            console.error("Failed to publish to Redpanda", e);
-            const message = e instanceof Error ? e.message : String(e);
-            return apiError(`Ingestion failed: ${message}`, "KAFKA_ERROR", 500);
-        }
-	});
-}));
+export const POST = withTelemetry(
+	withRole(UserRole.SYSTEM)(async (req: Request) => {
+		// Cast the schema to z.ZodSchema<unknown> for the validate helper,
+		// but rely on the inner inference for data usage.
+		// validate() ensures runtime structure.
+		return validate(RawStreamEventSchema as unknown as z.ZodSchema<unknown>)(req, async (data) => {
+			const event = RawStreamEventSchema.parse(data);
+			console.log("Ingesting event:", event.event_id);
+
+			try {
+				await kafka.sendEvent("raw_events", event.event_id, event);
+				return apiSuccess({ status: "accepted", event_id: event.event_id }, 202);
+			} catch (e: unknown) {
+				console.error("Failed to publish to Redpanda", e);
+				const message = e instanceof Error ? e.message : String(e);
+				return apiError(`Ingestion failed: ${message}`, "KAFKA_ERROR", 500);
+			}
+		});
+	}),
+);

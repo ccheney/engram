@@ -5,5 +5,5 @@
 		"outDir": "dist",
 		"baseUrl": "."
 	},
-	"include": ["index.ts"],
-
+	"include": ["index.ts"]
+}

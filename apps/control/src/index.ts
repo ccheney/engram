@@ -1,10 +1,10 @@
-import { createKafkaClient, createFalkorClient } from "@the-soul/storage";
 import { createNodeLogger } from "@the-soul/logger";
+import { createFalkorClient, createKafkaClient } from "@the-soul/storage";
 import { ContextAssembler } from "./context/assembler";
 import { SessionManager } from "./session/manager";
 import { McpToolAdapter, MultiMcpAdapter } from "./tools/mcp_client";
 
-const logger = createNodeLogger({ service: "control-service", component: "main" });
+const logger = createNodeLogger({ service: "control-service", base: { component: "main" } });
 
 // Initialize Services
 const kafka = createKafkaClient("control-service");
@@ -37,7 +37,7 @@ const sessionManager = new SessionManager(contextAssembler, multiAdapter, falkor
 async function init() {
 	await falkor.connect();
 	logger.info("FalkorDB connected");
-	
+
 	try {
 		await multiAdapter.connectAll();
 		logger.info("All MCP Servers connected");

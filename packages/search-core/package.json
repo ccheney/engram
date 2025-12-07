@@ -1,21 +1,21 @@
 {
-  "name": "@the-soul/search-core",
-  "version": "0.0.0",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "devDependencies": {
-    "typescript": "^5.9.3",
-    "@types/node": "^24.10.1",
-    "@the-soul/tsconfig": "workspace:*"
-  },
-  "dependencies": {
-    "zod": "^4.1.13",
-    "@huggingface/transformers": "^3.8.1",
-    "@qdrant/js-client-rest": "^1.16.2",
-    "p-queue": "^8.0.1"
-  },
-  "scripts": {
-    "build": "echo 'Build success'",
-    "typecheck": "tsc --noEmit"
-  }
+	"name": "@the-soul/search-core",
+	"version": "0.0.0",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"devDependencies": {
+		"typescript": "^5.9.3",
+		"@types/node": "^24.10.1",
+		"@the-soul/tsconfig": "workspace:*"
+	},
+	"dependencies": {
+		"zod": "^4.1.13",
+		"@huggingface/transformers": "^3.8.1",
+		"@qdrant/js-client-rest": "^1.16.2",
+		"p-queue": "^8.0.1"
+	},
+	"scripts": {
+		"build": "echo 'Build success'",
+		"typecheck": "tsc --noEmit"
+	}
 }

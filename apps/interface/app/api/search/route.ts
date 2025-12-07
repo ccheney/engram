@@ -1,8 +1,7 @@
+import { apiError, apiSuccess } from "@lib/api-response";
+import { validate } from "@lib/validate";
 import { SearchRetriever } from "@the-soul/search-core";
-import type { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, apiSuccess } from "../../../lib/api-response";
-import { validate } from "../../../lib/validate";
 
 // Initialize retriever (singleton behavior handled internally or by module caching)
 const retriever = new SearchRetriever(process.env.QDRANT_URL || "http://localhost:6333");

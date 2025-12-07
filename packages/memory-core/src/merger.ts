@@ -4,46 +4,46 @@ export class GraphMerger {
 	constructor(private client: FalkorClient) {}
 
 	async mergeNodes(targetId: string, sourceId: string) {
-        // 1. Get all edges connected to source
-        const edgesQuery = `
+		// 1. Get all edges connected to source
+		const edgesQuery = `
             MATCH (s {id: $sourceId})-[r]-(n)
             RETURN type(r) as type, startNode(r) = s as isOutgoing, n.id as neighborId, properties(r) as props
         `;
-        
-        // biome-ignore lint/suspicious/noExplicitAny: FalkorDB result
-        const edgesResult: any = await this.client.query(edgesQuery, { sourceId });
-        
-        if (!Array.isArray(edgesResult)) return;
 
-        for (const row of edgesResult) {
-            const type = row[0];
-            const isOutgoing = row[1];
-            const neighborId = row[2];
-            const props = row[3] || {};
+		// biome-ignore lint/suspicious/noExplicitAny: FalkorDB result
+		const edgesResult: any = await this.client.query(edgesQuery, { sourceId });
 
-            // Re-create edge to target
-            let createQuery = "";
-            if (isOutgoing) {
-                createQuery = `
+		if (!Array.isArray(edgesResult)) return;
+
+		for (const row of edgesResult) {
+			const type = row[0];
+			const isOutgoing = row[1];
+			const neighborId = row[2];
+			const props = row[3] || {};
+
+			// Re-create edge to target
+			let createQuery = "";
+			if (isOutgoing) {
+				createQuery = `
                     MATCH (t {id: $targetId}), (n {id: $neighborId})
                     MERGE (t)-[r:${type}]->(n)
                     SET r = $props
                 `;
-            } else {
-                createQuery = `
+			} else {
+				createQuery = `
                     MATCH (t {id: $targetId}), (n {id: $neighborId})
                     MERGE (n)-[r:${type}]->(t)
                     SET r = $props
                 `;
-            }
-            
-            await this.client.query(createQuery, { targetId, neighborId, props });
-        }
+			}
 
-        // 2. Delete source node (and its old edges)
-        const deleteQuery = `MATCH (s {id: $sourceId}) DETACH DELETE s`;
-        await this.client.query(deleteQuery, { sourceId });
-        
-        console.log(`Merged node ${sourceId} into ${targetId}`);
+			await this.client.query(createQuery, { targetId, neighborId, props });
+		}
+
+		// 2. Delete source node (and its old edges)
+		const deleteQuery = `MATCH (s {id: $sourceId}) DETACH DELETE s`;
+		await this.client.query(deleteQuery, { sourceId });
+
+		console.log(`Merged node ${sourceId} into ${targetId}`);
 	}
 }

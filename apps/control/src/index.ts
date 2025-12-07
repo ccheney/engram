@@ -1,30 +1,35 @@
-import { createKafkaClient } from "@the-soul/storage";
+import { createKafkaClient, createFalkorClient } from "@the-soul/storage";
 import { ContextAssembler } from "./context/assembler";
-import { DecisionEngine } from "./engine/decision";
+import { SessionManager } from "./session/manager";
 import { McpToolAdapter } from "./tools/mcp_client";
 
 // Initialize Services
 const kafka = createKafkaClient("control-service");
+const falkor = createFalkorClient();
 
 // Initialize MCP Adapter
 // For V1 scaffold: We'll spawn 'bun run apps/execution/src/index.ts' if local.
 const mcpAdapter = new McpToolAdapter("bun", ["run", "../../apps/execution/src/index.ts"]);
 
 // Initialize Core Logic
-// Mocking for now as they require their own initialization.
-// Casting to unknown then expected type to satisfy Biome and TS.
+// TODO: Replace with real SearchRetriever when available or mocked properly
 const contextAssembler = new ContextAssembler(
   {} as unknown as import("@the-soul/search-core").SearchRetriever,
-  {} as unknown as import("@the-soul/storage").FalkorClient,
+  falkor,
 );
 
-const engine = new DecisionEngine(contextAssembler, mcpAdapter);
+const sessionManager = new SessionManager(contextAssembler, mcpAdapter, falkor);
 
-// Start Engine
-engine.start();
+// Connect to DB
+async function init() {
+  await falkor.connect();
+  console.log("FalkorDB connected");
+}
 
 // Kafka Consumer
 const startConsumer = async () => {
+  await init();
+
   const consumer = await kafka.createConsumer("control-group");
   await consumer.subscribe({ topic: "parsed_events", fromBeginning: false });
 
@@ -38,9 +43,13 @@ const startConsumer = async () => {
         // Filter for user messages or system triggers
         if (event.type === "content" && event.role === "user") {
           console.log(`[Control] Received user input: ${event.content}`);
-          // Trigger Decision Engine
+          // Trigger Session Manager
           const sessionId = event.metadata?.session_id || event.original_event_id;
-          await engine.handleInput(sessionId, event.content);
+          if (!sessionId) {
+             console.warn("No session_id in event metadata");
+             return;
+          }
+          await sessionManager.handleInput(sessionId, event.content);
         }
       } catch (e) {
         console.error("Control processing error", e);

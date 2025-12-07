@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "dependencies": {
     "@the-soul/logger": "workspace:*",
+    "@the-soul/storage": "workspace:*",
+    "@the-soul/memory-core": "workspace:*",
+    "@the-soul/search-core": "workspace:*",
     "@mastra/core": "^0.24.6",
     "zod": "^3.25.76",
     "ai": "^5.0.108",

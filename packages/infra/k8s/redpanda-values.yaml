@@ -1,0 +1,29 @@
+# Redpanda Helm Chart Values for GKE Autopilot
+# Chart: redpanda/redpanda
+
+statefulset:
+  replicas: 3
+  
+storage:
+  persistentVolume:
+    enabled: true
+    size: 100Gi
+    storageClass: "standard-rwo" # GKE Standard
+
+resources:
+  cpu:
+    cores: 2
+  memory:
+    container:
+      max: 4Gi
+
+# Expose internally via ClusterIP (headless service)
+external:
+  enabled: false
+
+# Enable Tiered Storage (GCS) if needed
+storage:
+  tieredConfig:
+    cloud_storage_enabled: "true"
+    cloud_storage_bucket: "soul-redpanda-tiered-storage"
+    cloud_storage_region: "us-central1"

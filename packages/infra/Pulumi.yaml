@@ -1,0 +1,3 @@
+name: soul-infra
+runtime: nodejs
+description: The Soul Infrastructure (GKE Autopilot, Cloud Run, Secret Manager)

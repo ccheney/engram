@@ -1,0 +1,26 @@
+# Qdrant Helm Chart Values for GKE Autopilot
+# Chart: qdrant/qdrant
+
+replicaCount: 1
+
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClassName: "standard-rwo"
+
+resources:
+  requests:
+    cpu: "1"
+    memory: "2Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+
+config:
+  service:
+    enable_tls: false
+  cluster:
+    enabled: false # Single node for now
+
+service:
+  type: ClusterIP

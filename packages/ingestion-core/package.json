@@ -8,6 +8,7 @@
     "@types/node": "^20.12.7"
   },
   "dependencies": {
-    "google-libphonenumber": "^3.2.35"
+    "google-libphonenumber": "^3.2.35",
+    "@the-soul/events": "workspace:*"
   }
 }

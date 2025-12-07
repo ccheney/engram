@@ -1,13 +1,16 @@
 import { createSchema, createYoga } from "graphql-yoga";
 import { resolvers, typeDefs } from "./schema";
 
-const { handleRequest } = createYoga({
-  schema: createSchema({
-    typeDefs,
-    resolvers,
-  }),
-  graphqlEndpoint: "/api/graphql",
-  fetchAPI: { Response },
+const yoga = createYoga({
+	schema: createSchema({
+		typeDefs,
+		resolvers,
+	}),
+	graphqlEndpoint: "/api/graphql",
+	fetchAPI: { Response },
 });
 
-export { handleRequest as GET, handleRequest as POST };
+// biome-ignore lint/suspicious/noExplicitAny: Next.js Context type mismatch with Yoga
+const handle = (req: Request, context: any) => yoga.handleRequest(req, context);
+
+export { handle as GET, handle as POST };

@@ -46,9 +46,10 @@ server.tool(
     session_id: z.string(),
     limit: z.number().optional().default(50),
   },
-  async ({ session_id }) => {
+  async ({ session_id, limit }) => {
     try {
       await falkor.connect();
+      // Note: Using limit in Cypher string
       const cypher = `
             MATCH (s:Session {id: $session_id})-[:TRIGGERS]->(first:Thought)
             MATCH p = (first)-[:NEXT*0..${limit}]->(t:Thought)

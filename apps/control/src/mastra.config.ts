@@ -3,7 +3,9 @@ import { mainLoop } from "./workflows/main_loop";
 
 export const config = {
   name: "soul-control",
-  workflows: { mainLoop }, // Changed from array to Record<string, Workflow> based on type error hints
+  workflows: {
+    mainLoop,
+  },
   agents: {},
 };
 

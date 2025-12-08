@@ -42,9 +42,69 @@ describe("TextEmbedder", () => {
 		expect(mockExtractor).toHaveBeenCalledWith("query: search term", expect.any(Object));
 	});
 
-	it("should return empty sparse vector (stub)", async () => {
-		const embedder = new TextEmbedder();
-		const sparse = await embedder.embedSparse("test");
-		expect(sparse).toEqual({ indices: [], values: [] });
+	describe("sparse embedding (BM25)", () => {
+		it("should generate sparse vectors with indices and values", async () => {
+			const embedder = new TextEmbedder();
+			const sparse = await embedder.embedSparse("hello world test");
+
+			expect(sparse.indices).toBeInstanceOf(Array);
+			expect(sparse.values).toBeInstanceOf(Array);
+			expect(sparse.indices.length).toBeGreaterThan(0);
+			expect(sparse.indices.length).toBe(sparse.values.length);
+		});
+
+		it("should return empty for empty/whitespace text", async () => {
+			const embedder = new TextEmbedder();
+			const sparse = await embedder.embedSparse("   ");
+			expect(sparse).toEqual({ indices: [], values: [] });
+		});
+
+		it("should produce consistent hashes for same terms", async () => {
+			const embedder = new TextEmbedder();
+			const sparse1 = await embedder.embedSparse("hello world");
+			const sparse2 = await embedder.embedSparse("hello world");
+
+			expect(sparse1.indices).toEqual(sparse2.indices);
+			expect(sparse1.values).toEqual(sparse2.values);
+		});
+
+		it("should have sorted indices", async () => {
+			const embedder = new TextEmbedder();
+			const sparse = await embedder.embedSparse("the quick brown fox jumps over the lazy dog");
+
+			for (let i = 1; i < sparse.indices.length; i++) {
+				expect(sparse.indices[i]).toBeGreaterThan(sparse.indices[i - 1]);
+			}
+		});
+
+		it("should have positive weights", async () => {
+			const embedder = new TextEmbedder();
+			const sparse = await embedder.embedSparse("testing sparse vectors");
+
+			for (const value of sparse.values) {
+				expect(value).toBeGreaterThan(0);
+			}
+		});
+
+		it("should handle repeated terms with higher weights", async () => {
+			const embedder = new TextEmbedder();
+			const singleWord = await embedder.embedSparse("test");
+			const repeatedWord = await embedder.embedSparse("test test test test");
+
+			// Find the weight for the "test" token in each
+			// With BM25 saturation, repeated terms should have diminishing returns but still higher
+			const singleWeight = singleWord.values[0];
+			const repeatedWeight = repeatedWord.values[0];
+
+			expect(repeatedWeight).toBeGreaterThan(singleWeight);
+		});
+
+		it("should generate sparse query vectors", async () => {
+			const embedder = new TextEmbedder();
+			const sparse = await embedder.embedSparseQuery("search query");
+
+			expect(sparse.indices.length).toBeGreaterThan(0);
+			expect(sparse.values.length).toBe(sparse.indices.length);
+		});
 	});
 });

@@ -38,8 +38,8 @@ export class SearchIndexer {
 			denseVector = await this.textEmbedder.embed(content);
 		}
 
-		// Sparse Vector (TODO: Implement actual sparse embedding)
-		const sparseVector = { indices: [], values: [] };
+		// Generate sparse vector for hybrid search (BM25-based keyword matching)
+		const sparseVector = await this.textEmbedder.embedSparse(content);
 
 		// Payload
 		const payload = {

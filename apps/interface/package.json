@@ -40,7 +40,7 @@
 		"typescript": "^5.9.3"
 	},
 	"scripts": {
-		"dev": "tsx server.ts",
+		"dev": "tsx --env-file=.env server.ts",
 		"start": "tsx server.ts",
 		"build": "next build",
 		"typecheck": "tsc --noEmit",

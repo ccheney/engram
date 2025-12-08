@@ -12,7 +12,7 @@
 		"@engram/tsconfig": "workspace:*"
 	},
 	"scripts": {
-		"dev": "tsx src/index.ts",
+		"dev": "tsx --env-file=.env src/index.ts",
 		"build": "echo 'Build success'",
 		"typecheck": "tsc --noEmit"
 	}

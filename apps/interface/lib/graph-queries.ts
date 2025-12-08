@@ -1,0 +1,443 @@
+import {
+	createFalkorClient,
+	type FalkorEdge,
+	type FalkorNode,
+	type SessionNode,
+} from "@engram/storage/falkor";
+
+// Singleton FalkorDB client
+const falkor = createFalkorClient();
+
+// =============================================================================
+// Type Definitions
+// =============================================================================
+
+interface LineageRow {
+	s?: SessionNode;
+	path_nodes?: FalkorNode[];
+	path_edges?: FalkorEdge[];
+}
+
+interface SessionsRow {
+	s?: SessionNode;
+	eventCount?: number;
+	lastEventAt?: number;
+}
+
+interface CountRow {
+	cnt?: number;
+	[key: number]: number | undefined;
+}
+
+interface PreviewRow {
+	preview?: string;
+	[key: number]: string | undefined;
+}
+
+interface TotalRow {
+	total?: number;
+	[key: number]: number | undefined;
+}
+
+export interface LineageNode {
+	id: string;
+	label: string;
+	type?: string;
+	[key: string]: unknown;
+}
+
+export interface LineageLink {
+	source: string;
+	target: string;
+	type: string;
+	properties?: Record<string, unknown>;
+}
+
+export interface LineageData {
+	nodes: LineageNode[];
+	links: LineageLink[];
+}
+
+export interface TimelineEvent {
+	id: string;
+	type: string;
+	[key: string]: unknown;
+}
+
+export interface TimelineData {
+	timeline: TimelineEvent[];
+}
+
+export interface SessionListItem {
+	id: string;
+	title: string | null;
+	userId: string;
+	startedAt: number;
+	lastEventAt: number | null;
+	eventCount: number;
+	preview: string | null;
+	isActive: boolean;
+}
+
+export interface SessionsData {
+	active: SessionListItem[];
+	recent: SessionListItem[];
+	sessions: SessionListItem[];
+	pagination?: {
+		total: number;
+		limit: number;
+		offset: number;
+		hasMore: boolean;
+	};
+}
+
+// =============================================================================
+// Edge Types (centralized constants)
+// =============================================================================
+
+/**
+ * Edge types used in the Turn-based graph structure:
+ * - HAS_TURN: Session -> Turn
+ * - CONTAINS: Turn -> Reasoning
+ * - TOUCHES: Turn -> FileTouch
+ * - NEXT: Turn -> Turn (sequential linking)
+ */
+export const EDGE_TYPES = {
+	HAS_TURN: "HAS_TURN",
+	CONTAINS: "CONTAINS",
+	TOUCHES: "TOUCHES",
+	NEXT: "NEXT",
+} as const;
+
+// Combined edge pattern for path traversal
+const LINEAGE_EDGE_PATTERN = "[:HAS_TURN|CONTAINS|TOUCHES|NEXT*0..100]";
+
+// =============================================================================
+// Query Functions
+// =============================================================================
+
+/**
+ * Get full lineage graph for a session
+ * Returns all Turn, Reasoning, and FileTouch nodes connected to the session
+ */
+export async function getSessionLineage(sessionId: string): Promise<LineageData> {
+	await falkor.connect();
+
+	// Query 1: Get the session and all connected nodes via path traversal
+	const query = `
+		MATCH (s:Session {id: $sessionId})
+		OPTIONAL MATCH p = (s)-${LINEAGE_EDGE_PATTERN}->(n)
+		RETURN s, nodes(p) as path_nodes, relationships(p) as path_edges
+	`;
+
+	const res = await falkor.query<LineageRow>(query, { sessionId });
+
+	// Query 2: Explicitly get HAS_TURN edges (path traversal may miss these in edge extraction)
+	const hasTurnQuery = `
+		MATCH (s:Session {id: $sessionId})-[r:HAS_TURN]->(t:Turn)
+		RETURN s.id as sourceId, t.id as targetId, type(r) as relType
+	`;
+	const hasTurnRes = await falkor.query<{ sourceId: string; targetId: string; relType: string }>(hasTurnQuery, { sessionId });
+
+	const internalIdToUuid = new Map<number, string>();
+	const nodesMap = new Map<string, LineageNode>();
+	const links: LineageLink[] = [];
+
+	// Use a Set to track unique edges (prevent duplicates from multiple paths)
+	const seenEdges = new Set<string>();
+
+	if (res && Array.isArray(res)) {
+		// First pass: collect all nodes
+		for (const row of res) {
+			// Session node
+			const sessionNode = row.s;
+			if (sessionNode) {
+				const uuid = sessionNode.properties?.id as string | undefined;
+				if (uuid) {
+					internalIdToUuid.set(sessionNode.id, uuid);
+					if (!nodesMap.has(uuid)) {
+						nodesMap.set(uuid, {
+							...sessionNode.properties,
+							id: uuid,
+							label: "Session",
+							type: "session",
+						});
+					}
+				}
+			}
+
+			// Path nodes
+			const pathNodes = row.path_nodes;
+			if (Array.isArray(pathNodes)) {
+				for (const n of pathNodes) {
+					if (n) {
+						const uuid = n.properties?.id as string | undefined;
+						if (uuid) {
+							internalIdToUuid.set(n.id, uuid);
+							if (!nodesMap.has(uuid)) {
+								const label = n.labels?.[0] || "Unknown";
+								nodesMap.set(uuid, {
+									...n.properties,
+									id: uuid,
+									label,
+									type: label.toLowerCase(),
+								});
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Second pass: collect edges (deduplicated)
+		for (const row of res) {
+			const pathEdges = row.path_edges;
+			if (Array.isArray(pathEdges)) {
+				for (const e of pathEdges) {
+					if (e) {
+						const sourceUuid = internalIdToUuid.get(e.sourceId || e.srcNodeId);
+						const targetUuid = internalIdToUuid.get(e.destinationId || e.destNodeId);
+						const edgeType = e.relationshipType || e.relation || e.type || "";
+
+						if (sourceUuid && targetUuid) {
+							// Create unique key for edge deduplication
+							const edgeKey = `${sourceUuid}->${targetUuid}:${edgeType}`;
+							if (!seenEdges.has(edgeKey)) {
+								seenEdges.add(edgeKey);
+								links.push({
+									source: sourceUuid,
+									target: targetUuid,
+									type: edgeType,
+									properties: e.properties,
+								});
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Add HAS_TURN edges from explicit query (these may be missed by path traversal edge extraction)
+	if (hasTurnRes && Array.isArray(hasTurnRes)) {
+		for (const row of hasTurnRes) {
+			const sourceId = row.sourceId;
+			const targetId = row.targetId;
+			const edgeType = row.relType || "HAS_TURN";
+
+			if (sourceId && targetId) {
+				const edgeKey = `${sourceId}->${targetId}:${edgeType}`;
+				if (!seenEdges.has(edgeKey)) {
+					seenEdges.add(edgeKey);
+					links.push({
+						source: sourceId,
+						target: targetId,
+						type: edgeType,
+						properties: {},
+					});
+				}
+			}
+		}
+	}
+
+	return {
+		nodes: Array.from(nodesMap.values()),
+		links,
+	};
+}
+
+/**
+ * Get timeline of Turns for a session
+ */
+export async function getSessionTimeline(sessionId: string): Promise<TimelineData> {
+	await falkor.connect();
+
+	const cypher = `
+		MATCH (s:Session {id: $sessionId})-[:HAS_TURN]->(t:Turn)
+		RETURN t
+		ORDER BY t.sequence_index ASC
+	`;
+
+	const result = await falkor.query<{ t?: FalkorNode }>(cypher, { sessionId });
+	const timeline: TimelineEvent[] = [];
+
+	if (Array.isArray(result)) {
+		for (const row of result) {
+			const node = row.t;
+			if (node?.properties) {
+				timeline.push({
+					...node.properties,
+					id: node.properties.id as string,
+					type: "turn",
+				});
+			}
+		}
+	}
+
+	return { timeline };
+}
+
+/**
+ * Get all sessions with metadata
+ */
+export async function getAllSessions(options: {
+	limit?: number;
+	offset?: number;
+	activeThresholdMs?: number;
+}): Promise<SessionsData> {
+	const { limit = 50, offset = 0, activeThresholdMs = 60 * 1000 } = options;
+
+	await falkor.connect();
+
+	// Query sessions with turn count
+	const cypher = `
+		MATCH (s:Session)
+		RETURN s
+		ORDER BY s.started_at DESC
+		SKIP ${offset} LIMIT ${limit}
+	`;
+
+	const result = await falkor.query<{ s?: SessionNode; [key: number]: SessionNode | undefined }>(cypher);
+
+	const sessions: SessionListItem[] = [];
+	const now = Date.now();
+
+	if (Array.isArray(result)) {
+		for (const row of result) {
+			const node = row.s || row[0];
+			if (node?.properties) {
+				const props = node.properties;
+				const sessionId = props.id;
+
+				// Get turn count
+				const countQuery = `
+					MATCH (s:Session {id: $sessionId})-[:HAS_TURN]->(t:Turn)
+					RETURN count(t) as cnt
+				`;
+				const countRes = await falkor.query<CountRow>(countQuery, { sessionId });
+				const eventCount = countRes?.[0]?.cnt ?? countRes?.[0]?.[0] ?? 0;
+
+				// Get preview from first turn
+				const previewQuery = `
+					MATCH (s:Session {id: $sessionId})-[:HAS_TURN]->(t:Turn)
+					RETURN t.assistant_preview as preview
+					ORDER BY t.sequence_index ASC
+					LIMIT 1
+				`;
+				const previewRes = await falkor.query<PreviewRow>(previewQuery, { sessionId });
+				const preview = previewRes?.[0]?.preview ?? previewRes?.[0]?.[0] ?? null;
+
+				const lastEventAt = props.last_event_at ?? null;
+				const isActive = lastEventAt ? now - lastEventAt < activeThresholdMs : false;
+
+				sessions.push({
+					id: sessionId,
+					title: props.title ?? null,
+					userId: props.user_id ?? "unknown",
+					startedAt: props.started_at ?? 0,
+					lastEventAt,
+					eventCount,
+					preview: preview ? truncatePreview(preview, 150) : null,
+					isActive,
+				});
+			}
+		}
+	}
+
+	// Get total count
+	const countResult = await falkor.query<TotalRow>("MATCH (s:Session) RETURN count(s) as total");
+	const total = countResult?.[0]?.total ?? countResult?.[0]?.[0] ?? sessions.length;
+
+	// Separate active and recent
+	const active = sessions.filter((s) => s.isActive);
+	const recent = sessions.filter((s) => !s.isActive);
+
+	return {
+		active,
+		recent,
+		sessions,
+		pagination: {
+			total,
+			limit,
+			offset,
+			hasMore: offset + sessions.length < total,
+		},
+	};
+}
+
+/**
+ * Get sessions optimized for WebSocket (with aggregated counts)
+ */
+export async function getSessionsForWebSocket(limit = 50): Promise<{ active: SessionListItem[]; recent: SessionListItem[] }> {
+	await falkor.connect();
+
+	const cypher = `
+		MATCH (s:Session)
+		OPTIONAL MATCH (s)-[:HAS_TURN]->(t:Turn)
+		WITH s, count(t) as eventCount, max(t.vt_start) as lastEventAt
+		RETURN s, eventCount, lastEventAt
+		ORDER BY COALESCE(s.started_at, s.last_event_at) DESC
+		LIMIT $limit
+	`;
+
+	const result = await falkor.query<SessionsRow>(cypher, { limit });
+
+	const active: SessionListItem[] = [];
+	const recent: SessionListItem[] = [];
+	const now = Date.now();
+	const activeThreshold = 5 * 60 * 1000; // 5 minutes
+
+	if (Array.isArray(result)) {
+		for (const row of result) {
+			const node = row.s;
+			if (node?.properties) {
+				const props = node.properties;
+				const sessionStartedAt = props.started_at ?? now;
+				const sessionLastEventAt = props.last_event_at ?? row.lastEventAt ?? sessionStartedAt;
+				const isActive = now - sessionLastEventAt < activeThreshold;
+
+				const session: SessionListItem = {
+					id: props.id,
+					title: props.title ?? null,
+					userId: props.user_id ?? "unknown",
+					startedAt: sessionStartedAt,
+					lastEventAt: sessionLastEventAt,
+					eventCount: row.eventCount ?? 0,
+					preview: props.preview ?? null,
+					isActive,
+				};
+
+				if (isActive) {
+					active.push(session);
+				} else {
+					recent.push(session);
+				}
+			}
+		}
+	}
+
+	return { active, recent };
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+function truncatePreview(text: string, maxLength: number): string {
+	if (text.length <= maxLength) return text;
+	return `${text.slice(0, maxLength).trim()}...`;
+}
+
+/**
+ * Ensure FalkorDB connection is established
+ */
+export async function ensureConnection(): Promise<void> {
+	await falkor.connect();
+}
+
+/**
+ * Get the FalkorDB client instance (for direct queries if needed)
+ */
+export function getFalkorClient() {
+	return falkor;
+}

@@ -39,55 +39,160 @@ const nodeHeight = 50;
 // Context for highlighted node to avoid prop drilling and re-renders
 const HighlightContext = createContext<string | null>(null);
 
-// Radial layout: session at center, thoughts in concentric rings
+// Horizontal tree layout: Session -> Turns -> Reasoning/FileTouch (left to right)
 const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY: number) => {
 	if (nodes.length === 0) return { nodes: [], edges };
 
 	// Find the session node (root)
 	const sessionNode = nodes.find((n) => (n.data?.type as string)?.toLowerCase() === "session");
-	const otherNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() !== "session");
 
 	if (!sessionNode) {
 		// Fallback to grid if no session
 		return getGridLayout(nodes, edges, centerX, centerY);
 	}
 
-	const layoutedNodes: Node[] = [];
-
-	// Place session at center
-	layoutedNodes.push({
-		...sessionNode,
-		position: { x: centerX - nodeWidth / 2, y: centerY - nodeHeight / 2 },
-		targetPosition: Position.Top,
-		sourcePosition: Position.Bottom,
+	// Categorize nodes by type
+	const turnNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() === "turn");
+	const reasoningNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() === "reasoning");
+	const fileTouchNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() === "filetouch");
+	const otherNodes = nodes.filter((n) => {
+		const type = (n.data?.type as string)?.toLowerCase();
+		return type !== "session" && type !== "turn" && type !== "reasoning" && type !== "filetouch";
 	});
 
-	// Calculate rings based on node count
-	const nodeCount = otherNodes.length;
-	const nodesPerRing = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(nodeCount) * 2)));
-	const _ringCount = Math.ceil(nodeCount / nodesPerRing);
-	const baseRadius = 180;
-	const ringSpacing = 140;
+	// Build parent-child map from edges
+	const childToParent = new Map<string, string>();
+	for (const edge of edges) {
+		childToParent.set(edge.target, edge.source);
+	}
 
-	// Place other nodes in concentric rings
-	otherNodes.forEach((node, index) => {
-		const ringIndex = Math.floor(index / nodesPerRing);
-		const positionInRing = index % nodesPerRing;
-		const nodesInThisRing = Math.min(nodesPerRing, nodeCount - ringIndex * nodesPerRing);
+	// Layout constants
+	const columnGap = 250; // Horizontal gap between columns
+	const rowGap = 80; // Vertical gap between rows (Turn + its children)
+	const childGap = 65; // Vertical gap between sibling children
 
-		const radius = baseRadius + ringIndex * ringSpacing;
-		const angleOffset = ringIndex * 0.3; // Rotate each ring slightly
-		const angle = (positionInRing / nodesInThisRing) * 2 * Math.PI + angleOffset;
+	// Group children by parent Turn
+	const reasoningByParent = new Map<string, Node[]>();
+	const fileTouchByParent = new Map<string, Node[]>();
+	for (const node of reasoningNodes) {
+		const parentId = childToParent.get(node.id);
+		if (parentId) {
+			const list = reasoningByParent.get(parentId) || [];
+			list.push(node);
+			reasoningByParent.set(parentId, list);
+		}
+	}
+	for (const node of fileTouchNodes) {
+		const parentId = childToParent.get(node.id);
+		if (parentId) {
+			const list = fileTouchByParent.get(parentId) || [];
+			list.push(node);
+			fileTouchByParent.set(parentId, list);
+		}
+	}
 
-		// Add some organic randomness
-		const jitterX = Math.sin(index * 7.3) * 15;
-		const jitterY = Math.cos(index * 5.7) * 15;
+	// Calculate height needed for each Turn's subtree
+	const turnHeights = new Map<string, number>();
+	for (const turn of turnNodes) {
+		const reasoningCount = reasoningByParent.get(turn.id)?.length || 0;
+		const fileTouchCount = fileTouchByParent.get(turn.id)?.length || 0;
+		const maxChildren = Math.max(reasoningCount, fileTouchCount, 1);
+		const height = maxChildren * nodeHeight + (maxChildren - 1) * (childGap - nodeHeight);
+		turnHeights.set(turn.id, Math.max(height, nodeHeight));
+	}
 
+	// Calculate total height of all Turn subtrees
+	const totalHeight = Array.from(turnHeights.values()).reduce((sum, h) => sum + h, 0) +
+		(turnNodes.length - 1) * rowGap;
+
+	// Starting Y position to center the tree vertically
+	const startY = centerY - totalHeight / 2;
+
+	// Column X positions
+	const sessionX = centerX - columnGap * 1.5;
+	const turnX = centerX - columnGap / 2;
+	const reasoningX = centerX + columnGap / 2;
+	const fileTouchX = centerX + columnGap * 1.5;
+
+	const layoutedNodes: Node[] = [];
+	const turnPositions = new Map<string, { x: number; y: number }>();
+
+	// Place session at left
+	layoutedNodes.push({
+		...sessionNode,
+		position: { x: sessionX - nodeWidth / 2, y: centerY - nodeHeight / 2 },
+		targetPosition: Position.Left,
+		sourcePosition: Position.Right,
+	});
+
+	// Place Turns in a vertical column, accounting for their subtree heights
+	let currentY = startY;
+	turnNodes.forEach((node) => {
+		const subtreeHeight = turnHeights.get(node.id) || nodeHeight;
+		const y = currentY + subtreeHeight / 2 - nodeHeight / 2;
+		turnPositions.set(node.id, { x: turnX, y });
+		layoutedNodes.push({
+			...node,
+			position: { x: turnX - nodeWidth / 2, y },
+			targetPosition: Position.Left,
+			sourcePosition: Position.Right,
+		});
+		currentY += subtreeHeight + rowGap;
+	});
+
+	// Place Reasoning nodes (column to right of Turns)
+	for (const [parentId, children] of reasoningByParent) {
+		const parentPos = turnPositions.get(parentId);
+		if (!parentPos) continue;
+		const totalChildHeight = children.length * nodeHeight + (children.length - 1) * (childGap - nodeHeight);
+		const startChildY = parentPos.y + nodeHeight / 2 - totalChildHeight / 2;
+		children.forEach((node, index) => {
+			layoutedNodes.push({
+				...node,
+				position: {
+					x: reasoningX - nodeWidth / 2,
+					y: startChildY + index * childGap,
+				},
+				targetPosition: Position.Left,
+				sourcePosition: Position.Right,
+			});
+		});
+	}
+
+	// Place FileTouch nodes (column to right of Reasoning)
+	for (const [parentId, children] of fileTouchByParent) {
+		const parentPos = turnPositions.get(parentId);
+		if (!parentPos) continue;
+		const totalChildHeight = children.length * nodeHeight + (children.length - 1) * (childGap - nodeHeight);
+		const startChildY = parentPos.y + nodeHeight / 2 - totalChildHeight / 2;
+		children.forEach((node, index) => {
+			layoutedNodes.push({
+				...node,
+				position: {
+					x: fileTouchX - nodeWidth / 2,
+					y: startChildY + index * childGap,
+				},
+				targetPosition: Position.Left,
+				sourcePosition: Position.Right,
+			});
+		});
+	}
+
+	// Place any orphan reasoning/filetouch nodes that don't have parents
+	const placedIds = new Set(layoutedNodes.map((n) => n.id));
+	const orphanNodes = [...reasoningNodes, ...fileTouchNodes, ...otherNodes].filter(
+		(n) => !placedIds.has(n.id),
+	);
+
+	// Place orphans in outer ring
+	const orphanRadius = 350;
+	orphanNodes.forEach((node, index) => {
+		const angle = (index / Math.max(orphanNodes.length, 1)) * 2 * Math.PI;
 		layoutedNodes.push({
 			...node,
 			position: {
-				x: centerX + Math.cos(angle) * radius - nodeWidth / 2 + jitterX,
-				y: centerY + Math.sin(angle) * radius - nodeHeight / 2 + jitterY,
+				x: centerX + Math.cos(angle) * orphanRadius - nodeWidth / 2,
+				y: centerY + Math.sin(angle) * orphanRadius - nodeHeight / 2,
 			},
 			targetPosition: Position.Top,
 			sourcePosition: Position.Bottom,
@@ -120,7 +225,7 @@ const getGridLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY: n
 };
 
 // Node type configurations - Monochrome + Amber palette
-// Silver/White (session), Amber (thought/action/observation), Slate (default)
+// Silver/White (session), Amber (turn), Cyan (reasoning), Green (filetouch)
 const nodeTypeConfig = {
 	session: {
 		// Silver/White - clean, prominent session hub
@@ -139,8 +244,59 @@ const nodeTypeConfig = {
 			</svg>
 		),
 	},
+	turn: {
+		// Amber - primary conversation unit
+		border: "rgba(251, 191, 36, 0.7)",
+		bg: "rgba(251, 191, 36, 0.1)",
+		glow: "rgba(251, 191, 36, 0.5)",
+		text: "rgb(251, 191, 36)",
+		icon: (
+			<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					strokeWidth={1.5}
+					d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+				/>
+			</svg>
+		),
+	},
+	reasoning: {
+		// Cyan - thinking/reasoning blocks
+		border: "rgba(34, 211, 238, 0.7)",
+		bg: "rgba(34, 211, 238, 0.1)",
+		glow: "rgba(34, 211, 238, 0.5)",
+		text: "rgb(34, 211, 238)",
+		icon: (
+			<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					strokeWidth={1.5}
+					d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+				/>
+			</svg>
+		),
+	},
+	filetouch: {
+		// Green - file operations
+		border: "rgba(34, 197, 94, 0.7)",
+		bg: "rgba(34, 197, 94, 0.1)",
+		glow: "rgba(34, 197, 94, 0.5)",
+		text: "rgb(34, 197, 94)",
+		icon: (
+			<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					strokeWidth={1.5}
+					d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+				/>
+			</svg>
+		),
+	},
+	// Legacy types for backwards compatibility
 	thought: {
-		// Amber - warm neural firing (primary accent)
 		border: "rgba(251, 191, 36, 0.7)",
 		bg: "rgba(251, 191, 36, 0.1)",
 		glow: "rgba(251, 191, 36, 0.5)",
@@ -157,7 +313,6 @@ const nodeTypeConfig = {
 		),
 	},
 	action: {
-		// Amber variant - slightly warmer for actions
 		border: "rgba(251, 191, 36, 0.6)",
 		bg: "rgba(251, 191, 36, 0.08)",
 		glow: "rgba(251, 191, 36, 0.4)",
@@ -174,7 +329,6 @@ const nodeTypeConfig = {
 		),
 	},
 	observation: {
-		// Slate/Silver - neutral observation
 		border: "rgba(148, 163, 184, 0.6)",
 		bg: "rgba(148, 163, 184, 0.08)",
 		glow: "rgba(148, 163, 184, 0.4)",
@@ -774,6 +928,13 @@ export function LineageGraph({
 		switch (type) {
 			case "session":
 				return "rgb(226, 232, 240)"; // Silver/White
+			case "turn":
+				return "rgb(251, 191, 36)"; // Amber
+			case "reasoning":
+				return "rgb(34, 211, 238)"; // Cyan
+			case "filetouch":
+				return "rgb(34, 197, 94)"; // Green
+			// Legacy types
 			case "thought":
 				return "rgb(251, 191, 36)"; // Amber
 			case "action":

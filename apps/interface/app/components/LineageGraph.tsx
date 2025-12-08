@@ -51,10 +51,28 @@ const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY:
 		return getGridLayout(nodes, edges, centerX, centerY);
 	}
 
-	// Categorize nodes by type
-	const turnNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() === "turn");
-	const reasoningNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() === "reasoning");
-	const fileTouchNodes = nodes.filter((n) => (n.data?.type as string)?.toLowerCase() === "filetouch");
+	// Categorize nodes by type and sort by sequence_index
+	const turnNodes = nodes
+		.filter((n) => (n.data?.type as string)?.toLowerCase() === "turn")
+		.sort((a, b) => {
+			const seqA = (a.data?.sequence_index as number) ?? 0;
+			const seqB = (b.data?.sequence_index as number) ?? 0;
+			return seqA - seqB;
+		});
+	const reasoningNodes = nodes
+		.filter((n) => (n.data?.type as string)?.toLowerCase() === "reasoning")
+		.sort((a, b) => {
+			const seqA = (a.data?.sequence_index as number) ?? 0;
+			const seqB = (b.data?.sequence_index as number) ?? 0;
+			return seqA - seqB;
+		});
+	const fileTouchNodes = nodes
+		.filter((n) => (n.data?.type as string)?.toLowerCase() === "filetouch")
+		.sort((a, b) => {
+			const seqA = (a.data?.sequence_index as number) ?? 0;
+			const seqB = (b.data?.sequence_index as number) ?? 0;
+			return seqA - seqB;
+		});
 	const otherNodes = nodes.filter((n) => {
 		const type = (n.data?.type as string)?.toLowerCase();
 		return type !== "session" && type !== "turn" && type !== "reasoning" && type !== "filetouch";

@@ -325,6 +325,7 @@ export async function getSessionTimeline(sessionId: string): Promise<TimelineDat
 				content: `Turn ${turnIndex}`,
 				timestamp,
 				turnIndex,
+				graphNodeId: turnId, // Actual graph node ID for highlighting
 			});
 
 			// Add user query event
@@ -382,6 +383,7 @@ export async function getSessionTimeline(sessionId: string): Promise<TimelineDat
 					content: assistantPreview,
 					timestamp,
 					tokenCount: (props.output_tokens as number) || 0,
+					graphNodeId: turnId, // Actual graph node ID for highlighting
 				});
 			}
 		}

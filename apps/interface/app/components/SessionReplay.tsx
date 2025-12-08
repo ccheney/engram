@@ -120,6 +120,7 @@ function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
 
 		if (isCompleteThought || isNewThinkingBlock) {
 			flushBuffer();
+			const graphNodeId = (event as { graphNodeId?: string }).graphNodeId || nodeId;
 			messages.push({
 				id: nodeId || `msg-${messages.length}`,
 				type: type.includes("action")
@@ -133,7 +134,7 @@ function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
 				timestamp,
 				tokenCount: 1,
 				isThinkingBlock: isThinkingContent(content),
-				nodeIds: [nodeId],
+				nodeIds: [graphNodeId],
 			});
 		} else if (isToken) {
 			if (!currentMessage) {
@@ -169,14 +170,16 @@ function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
 					msgType = MESSAGE_TYPES.SYSTEM;
 				}
 
+				// Use graphNodeId for highlighting if available, fallback to event id
+				const graphNodeId = (event as { graphNodeId?: string }).graphNodeId || nodeId;
 				messages.push({
 					id: nodeId || `msg-${messages.length}`,
 					type: msgType,
 					content: content.trim(),
 					timestamp,
-					tokenCount: 1,
+					tokenCount: (event as { tokenCount?: number }).tokenCount || 0,
 					isThinkingBlock: false,
-					nodeIds: [nodeId],
+					nodeIds: [graphNodeId],
 					toolName: (event as { toolName?: string }).toolName,
 				});
 			}
@@ -613,7 +616,17 @@ function TurnHeader({ turnNumber }: { turnNumber: string }) {
 }
 
 // FileTouch card - Green palette (matches FileTouch nodes in graph)
-function FileTouchCard({ filePath, toolName }: { filePath: string; toolName?: string }) {
+function FileTouchCard({
+	filePath,
+	toolName,
+	diffContent,
+}: {
+	filePath: string;
+	toolName?: string;
+	diffContent?: string;
+}) {
+	const [isExpanded, setIsExpanded] = useState(false);
+
 	const getToolIcon = (tool?: string) => {
 		switch (tool?.toLowerCase()) {
 			case "read":
@@ -631,46 +644,172 @@ function FileTouchCard({ filePath, toolName }: { filePath: string; toolName?: st
 		}
 	};
 
+	// Generate mock diff preview based on tool type (in real app, this would come from API)
+	const getDiffPreview = () => {
+		if (diffContent) return diffContent;
+		// Simulated preview based on file path
+		const fileName = filePath.split("/").pop() || "file";
+		if (toolName === "edit" || toolName === "write") {
+			return `+ import { ThrottlerGuard } from '@nestjs/throttler';\n  @UseGuards(AuthGuard)\n+ @UseGuards(ThrottlerGuard)`;
+		}
+		if (toolName === "read") {
+			return `  export class ${fileName.replace(/\.\w+$/, "")} {\n    constructor() { ... }\n  }`;
+		}
+		return `  // ${fileName}\n  ...`;
+	};
+
+	const diffPreview = getDiffPreview();
+	const previewLines = diffPreview.split("\n").slice(0, 3).join("\n");
+	const hasMoreLines = diffPreview.split("\n").length > 3;
+
 	return (
 		<div
 			style={{
-				display: "flex",
-				alignItems: "center",
-				gap: "10px",
-				padding: "10px 14px",
-				background: "linear-gradient(135deg, rgba(34, 197, 94, 0.06) 0%, rgba(34, 197, 94, 0.1) 100%)",
+				background:
+					"linear-gradient(135deg, rgba(34, 197, 94, 0.04) 0%, rgba(34, 197, 94, 0.08) 100%)",
 				borderRadius: "8px",
 				border: "1px solid rgba(34, 197, 94, 0.2)",
 				borderLeft: "3px solid rgb(34, 197, 94)",
+				overflow: "hidden",
 			}}
 		>
-			<span style={{ fontSize: "14px" }}>{getToolIcon(toolName)}</span>
-			<div style={{ flex: 1, minWidth: 0 }}>
-				{toolName && (
+			{/* Header row */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					gap: "10px",
+					padding: "10px 14px",
+				}}
+			>
+				<span style={{ fontSize: "14px" }}>{getToolIcon(toolName)}</span>
+				<div style={{ flex: 1, minWidth: 0 }}>
+					{toolName && (
+						<span
+							style={{
+								fontFamily: "JetBrains Mono, monospace",
+								fontSize: "9px",
+								fontWeight: 600,
+								color: "rgb(34, 197, 94)",
+								letterSpacing: "0.1em",
+								textTransform: "uppercase",
+								marginRight: "8px",
+							}}
+						>
+							{toolName}
+						</span>
+					)}
 					<span
 						style={{
 							fontFamily: "JetBrains Mono, monospace",
-							fontSize: "9px",
-							fontWeight: 600,
-							color: "rgb(34, 197, 94)",
-							letterSpacing: "0.1em",
-							textTransform: "uppercase",
-							marginRight: "8px",
+							fontSize: "11px",
+							color: "rgba(200, 220, 200, 0.9)",
+							wordBreak: "break-all",
 						}}
 					>
-						{toolName}
+						{filePath}
 					</span>
-				)}
-				<span
+				</div>
+				{/* Expand/collapse button */}
+				<button
+					type="button"
+					onClick={() => setIsExpanded(!isExpanded)}
 					style={{
+						padding: "4px 8px",
+						borderRadius: "4px",
+						background: isExpanded
+							? "rgba(34, 197, 94, 0.2)"
+							: "rgba(34, 197, 94, 0.1)",
+						border: "1px solid rgba(34, 197, 94, 0.3)",
+						color: "rgb(34, 197, 94)",
+						fontSize: "9px",
 						fontFamily: "JetBrains Mono, monospace",
-						fontSize: "11px",
-						color: "rgba(200, 220, 200, 0.9)",
-						wordBreak: "break-all",
+						fontWeight: 600,
+						cursor: "pointer",
+						display: "flex",
+						alignItems: "center",
+						gap: "4px",
+						transition: "all 0.2s ease",
 					}}
 				>
-					{filePath}
-				</span>
+					<svg
+						width="10"
+						height="10"
+						viewBox="0 0 10 10"
+						fill="none"
+						style={{
+							transition: "transform 0.2s ease",
+							transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+						}}
+					>
+						<path
+							d="M3 1L7 5L3 9"
+							stroke="currentColor"
+							strokeWidth="1.5"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						/>
+					</svg>
+					{isExpanded ? "HIDE" : "DIFF"}
+				</button>
+			</div>
+
+			{/* Collapsible code diff area */}
+			<div
+				style={{
+					maxHeight: isExpanded ? "200px" : "0",
+					opacity: isExpanded ? 1 : 0,
+					overflow: "hidden",
+					transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+				}}
+			>
+				<div
+					style={{
+						margin: "0 10px 10px 10px",
+						padding: "10px 12px",
+						background: "rgba(0, 0, 0, 0.3)",
+						borderRadius: "6px",
+						border: "1px solid rgba(34, 197, 94, 0.15)",
+						fontFamily: "JetBrains Mono, monospace",
+						fontSize: "10px",
+						lineHeight: "1.6",
+						whiteSpace: "pre",
+						overflowX: "auto",
+					}}
+				>
+					{(isExpanded ? diffPreview : previewLines).split("\n").map((line, i) => {
+						const isAddition = line.startsWith("+");
+						const isDeletion = line.startsWith("-");
+						return (
+							<div
+								key={i}
+								style={{
+									color: isAddition
+										? "rgb(74, 222, 128)"
+										: isDeletion
+											? "rgb(248, 113, 113)"
+											: "rgba(180, 200, 180, 0.8)",
+									background: isAddition
+										? "rgba(74, 222, 128, 0.1)"
+										: isDeletion
+											? "rgba(248, 113, 113, 0.1)"
+											: "transparent",
+									marginLeft: "-12px",
+									marginRight: "-12px",
+									paddingLeft: "12px",
+									paddingRight: "12px",
+								}}
+							>
+								{line}
+							</div>
+						);
+					})}
+					{!isExpanded && hasMoreLines && (
+						<div style={{ color: "rgba(100, 116, 139, 0.5)", marginTop: "4px" }}>
+							...
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);
@@ -742,20 +881,19 @@ function StatsHeader({ messages }: { messages: ConsolidatedMessage[] }) {
 						position: "relative",
 					}}
 				>
-					{/* Top glow accent */}
-					{i === 0 && (
-						<div
-							style={{
-								position: "absolute",
-								top: 0,
-								left: "20%",
-								right: "20%",
-								height: "2px",
-								background: `linear-gradient(90deg, transparent, ${stat.color}, transparent)`,
-								opacity: 0.5,
-							}}
-						/>
-					)}
+					{/* Bottom glow accent - colored underline matching stat color */}
+					<div
+						style={{
+							position: "absolute",
+							bottom: 0,
+							left: "15%",
+							right: "15%",
+							height: "2px",
+							background: `linear-gradient(90deg, transparent, ${stat.color}, transparent)`,
+							opacity: 0.6,
+							boxShadow: `0 0 8px ${stat.glowColor}`,
+						}}
+					/>
 					<span
 						style={{
 							fontFamily: "JetBrains Mono, monospace",
@@ -1119,6 +1257,8 @@ export function SessionReplay({ data, selectedNodeId, onEventHover }: SessionRep
 										paddingLeft: "32px",
 										marginTop: i > 0 ? "16px" : "0",
 									}}
+									onMouseEnter={() => handleHover(msg.nodeIds)}
+									onMouseLeave={() => handleHover(null)}
 								>
 									{/* Timeline node - amber for turns */}
 									<div

@@ -10,7 +10,7 @@ async function main() {
 	console.log("Creating consumer...");
 	const consumer = kafka.consumer({
 		"bootstrap.servers": "localhost:19092",
-		"group.id": "confluent-test-group-" + Date.now(),
+		"group.id": `confluent-test-group-${Date.now()}`,
 		"auto.offset.reset": "earliest",
 		"enable.auto.commit": true,
 	});

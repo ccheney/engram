@@ -1,4 +1,4 @@
-import { describe, expect, it, mock, spyOn } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { BatchIndexer } from "./batch-indexer";
 import type { SearchIndexer } from "./indexer";
 

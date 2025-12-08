@@ -1,5 +1,4 @@
-import { describe, expect, it, mock, spyOn } from "bun:test";
-import { DecisionEngine } from "../engine/decision";
+import { describe, expect, it, mock } from "bun:test";
 import { SessionManager } from "./manager";
 
 // Mocks
@@ -19,7 +18,6 @@ const mockMcp = {
 const mockHandleInput = mock(async () => {});
 mock.module("../engine/decision", () => ({
 	DecisionEngine: class {
-		constructor() {}
 		start() {}
 		handleInput = mockHandleInput;
 	},

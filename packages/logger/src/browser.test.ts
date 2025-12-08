@@ -14,7 +14,7 @@ mock.module("pino", () => {
 				},
 				bindings: () => {
 					let b = opts.base || {};
-					if (opts.formatters && opts.formatters.bindings) {
+					if (opts.formatters?.bindings) {
 						// Pass existing bindings (simulated as base)
 						b = opts.formatters.bindings(b);
 					}

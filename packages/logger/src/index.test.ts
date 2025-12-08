@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { createNodeLogger, withTenantContext, withTraceContext } from "./node";
 import { DEFAULT_REDACT_PATHS, mergeRedactPaths } from "./redaction";
 

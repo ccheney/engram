@@ -3,14 +3,13 @@ import { describe, expect, it, mock } from "bun:test";
 // Mock dependencies BEFORE import
 mock.module("@modelcontextprotocol/sdk/server/mcp.js", () => ({
 	McpServer: class {
-		constructor() {}
 		registerTool = mock(() => {});
 		connect = mock(async () => {});
 	},
 }));
 
 // Dynamic import
-const { server, vfs } = await import("./index");
+const { vfs } = await import("./index");
 
 describe("Execution Service", () => {
 	it("should register tools", () => {

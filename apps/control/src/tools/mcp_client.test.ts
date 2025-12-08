@@ -8,7 +8,6 @@ const mockCallTool = mock(async () => ({ content: [] }));
 
 mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
 	Client: class {
-		constructor() {}
 		connect = mockConnect;
 		listTools = mockListTools;
 		callTool = mockCallTool;
@@ -17,14 +16,12 @@ mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
 
 // Mock Transport
 mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
-	StdioClientTransport: class {
-		constructor() {}
-	},
+	StdioClientTransport: class {},
 }));
 
 // Mock Mastra
 mock.module("@mastra/core/workflows", () => ({
-	createStep: (obj: any) => ({ ...obj, _isStep: true }),
+	createStep: (obj: Record<string, unknown>) => ({ ...obj, _isStep: true }),
 }));
 
 describe("MCP Client", () => {

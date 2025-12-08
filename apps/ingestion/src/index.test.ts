@@ -24,12 +24,12 @@ describe("Ingestion Service", () => {
 			},
 		};
 
-		await processor.processEvent(event as any);
+		await processor.processEvent(event as Parameters<typeof processor.processEvent>[0]);
 
 		expect(mockSendEvent).toHaveBeenCalled();
 		const call = mockSendEvent.mock.calls[0];
 		expect(call[0]).toBe("parsed_events");
-		const parsed = call[2] as any;
+		const parsed = call[2] as { content: string; original_event_id: string };
 		expect(parsed.content).toBe("Hello");
 		expect(parsed.original_event_id).toBe("123");
 	});

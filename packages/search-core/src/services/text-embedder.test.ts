@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { TextEmbedder } from "./text-embedder";
 
-const mockExtractor = mock(async (input: string) => {
+const mockExtractor = mock(async (_input: string) => {
 	// Return mock tensor
 	return {
 		data: new Float32Array([0.1, 0.2, 0.3]),
@@ -10,7 +10,7 @@ const mockExtractor = mock(async (input: string) => {
 	};
 });
 
-const mockPipeline = mock(async (task: string, model: string) => {
+const mockPipeline = mock(async (task: string, _model: string) => {
 	if (task === "feature-extraction") {
 		return mockExtractor;
 	}

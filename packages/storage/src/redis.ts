@@ -138,7 +138,7 @@ export function createRedisSubscriber() {
 			});
 		}
 
-		subscriptions.get(channel)!.add(callback);
+		subscriptions.get(channel)?.add(callback);
 
 		// Return unsubscribe function
 		return async () => {

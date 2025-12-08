@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 // Re-export storage types for convenience (excluding node types that conflict with Zod schemas)
+// Storage node types have different names to avoid conflict with Zod-inferred types
 export type {
 	BitemporalProperties,
 	FalkorEdge,
@@ -9,16 +10,12 @@ export type {
 	FalkorRow,
 	QueryParam,
 	QueryParams,
-	SessionProperties,
-	ThoughtProperties,
-	ToolCallProperties,
-} from "@engram/storage/falkor";
-
-// Storage node types have different names to avoid conflict with Zod-inferred types
-export type {
 	SessionNode as FalkorSessionNode,
+	SessionProperties,
 	ThoughtNode as FalkorThoughtNode,
+	ThoughtProperties,
 	ToolCallNode as FalkorToolCallNode,
+	ToolCallProperties,
 } from "@engram/storage/falkor";
 
 // =============================================================================

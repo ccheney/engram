@@ -6,7 +6,7 @@ async function main() {
 	const kafka = createKafkaClient("test-client");
 
 	console.log("Creating consumer...");
-	const consumer = await kafka.createConsumer("node-test-group-" + Date.now());
+	const consumer = await kafka.createConsumer(`node-test-group-${Date.now()}`);
 	console.log("Consumer created!");
 
 	console.log("Subscribing to raw_events...");

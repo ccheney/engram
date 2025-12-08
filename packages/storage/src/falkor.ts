@@ -137,9 +137,12 @@ export class FalkorClient {
 	 * const result = await falkor.query<CountRow>('MATCH (n) RETURN count(n) as cnt');
 	 * result[0].cnt; // typed as number
 	 */
-	async query<T = Record<string, unknown>>(cypher: string, params: QueryParams = {}): Promise<FalkorResult<T>> {
+	async query<T = Record<string, unknown>>(
+		cypher: string,
+		params: QueryParams = {},
+	): Promise<FalkorResult<T>> {
 		if (!this.graph) await this.connect();
-		const result = await this.graph!.query(cypher, { params });
+		const result = await this.graph?.query(cypher, { params });
 		return result.data as FalkorResult<T>;
 	}
 

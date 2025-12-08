@@ -9,7 +9,7 @@ const kafka = new Kafka({
 
 async function main() {
 	console.log("Creating consumer...");
-	const consumer = kafka.consumer({ groupId: "test-group-" + Date.now() });
+	const consumer = kafka.consumer({ groupId: `test-group-${Date.now()}` });
 
 	console.log("Connecting...");
 	await consumer.connect();

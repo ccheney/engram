@@ -1,10 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	ParsedStreamEventSchema,
-	ProviderEnum,
-	type RawStreamEvent,
-	RawStreamEventSchema,
-} from "./index";
+import { ParsedStreamEventSchema, ProviderEnum, RawStreamEventSchema } from "./index";
 
 describe("Event Schemas", () => {
 	describe("ProviderEnum", () => {

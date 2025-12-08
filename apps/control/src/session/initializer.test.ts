@@ -4,7 +4,7 @@ import { SessionInitializer } from "./initializer";
 
 describe("SessionInitializer", () => {
 	it("should create a session if it does not exist", async () => {
-		const mockQuery = mock((query: string, _params: any) => {
+		const mockQuery = mock((query: string, _params: Record<string, unknown>) => {
 			if (query.includes("MATCH")) return Promise.resolve([]); // Not found
 			return Promise.resolve([["s"]]); // Created
 		});
@@ -21,7 +21,7 @@ describe("SessionInitializer", () => {
 	});
 
 	it("should not create a session if it exists", async () => {
-		const mockQuery = mock((_query: string, _params: any) => {
+		const mockQuery = mock((_query: string, _params: Record<string, unknown>) => {
 			return Promise.resolve([["existing"]]); // Found
 		});
 

@@ -1,6 +1,6 @@
+import { createServer } from "node:http";
 import { SchemaManager, SearchIndexer, SearchRetriever } from "@engram/search-core";
 import { createKafkaClient } from "@engram/storage";
-import { createServer } from "http";
 
 export class SearchService {
 	constructor(

@@ -230,7 +230,14 @@ export function useSessionStream({
 			clearTimeout(fallbackTimeout);
 			disconnect();
 		};
-	}, [sessionId]); // Only re-run if sessionId changes
+	}, [
+		// Try WebSocket first, fall back to polling if it fails
+		// Check if WebSocket endpoint exists by trying to connect
+		connectWebSocket,
+		disconnect, // Initial data fetch
+		fetchData,
+		startPolling,
+	]); // Only re-run if sessionId changes
 
 	// Manual refresh function
 	const refresh = useCallback(() => {

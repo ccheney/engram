@@ -58,7 +58,7 @@ function Particles() {
 }
 
 // Animated neural network decoration
-function NeuralDecoration() {
+function _NeuralDecoration() {
 	return (
 		<svg
 			style={{

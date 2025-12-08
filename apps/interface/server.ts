@@ -1,6 +1,6 @@
-import { createServer } from "http";
+import { createServer } from "node:http";
+import { parse } from "node:url";
 import next from "next";
-import { parse } from "url";
 import { WebSocketServer } from "ws";
 import { handleSessionConnection, handleSessionsConnection } from "./lib/websocket-server";
 
@@ -29,7 +29,7 @@ app.prepare().then(() => {
 		}
 
 		// Match /api/ws/session/:sessionId (individual session)
-		if (pathname && pathname.startsWith("/api/ws/session/")) {
+		if (pathname?.startsWith("/api/ws/session/")) {
 			const parts = pathname.split("/");
 			// /api/ws/session/123 -> ['', 'api', 'ws', 'session', '123']
 			const sessionId = parts[4];

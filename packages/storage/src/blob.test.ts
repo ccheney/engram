@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import * as path from "node:path";
 import { createBlobStore, FileSystemBlobStore, GCSBlobStore } from "./blob";
 
 // Mock fs/promises

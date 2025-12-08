@@ -1,6 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { RawStreamEventSchema } from "@engram/events";
 import { createKafkaClient } from "@engram/storage";
-import { randomUUID } from "crypto";
 
 const kafka = createKafkaClient("traffic-gen");
 
@@ -25,7 +25,7 @@ async function main() {
 		headers: { "x-session-id": sessionId },
 
 		payload: {
-			id: "evt_" + Date.now(),
+			id: `evt_${Date.now()}`,
 
 			object: "chat.completion.chunk",
 
@@ -106,7 +106,7 @@ async function main() {
 		"In our system, the bitemporal graph maintains two distinct timelines to ensure complete data integrity. Valid Time represents the period during which a fact is considered true in the real world, allowing us to model historical reality and future projections. Transaction Time, on the other hand, tracks when that fact was actually recorded in the system, providing an immutable audit log. Retroactive updates are handled by creating new versions of nodes with corrected Valid Time ranges, without overwriting the previous versions. This 'append-only' strategy preserves the full history of both the world's state and our knowledge of it, enabling precise time-travel queries and reliable reproducibility of past system states.";
 	const words = response.split(" ");
 	for (const word of words) {
-		const wordPayload = createEvent({ content: " " + word });
+		const wordPayload = createEvent({ content: ` ${word}` });
 		await producer.send({
 			topic: "raw_events",
 			messages: [
@@ -116,7 +116,7 @@ async function main() {
 				},
 			],
 		});
-		process.stdout.write(word + " ");
+		process.stdout.write(`${word} `);
 		await new Promise((r) => setTimeout(r, 250));
 	}
 

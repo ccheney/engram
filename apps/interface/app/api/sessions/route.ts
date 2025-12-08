@@ -1,8 +1,4 @@
-import {
-	createFalkorClient,
-	type SessionNode,
-	type SessionProperties,
-} from "@engram/storage/falkor";
+import { createFalkorClient, type SessionNode } from "@engram/storage/falkor";
 import { apiError, apiSuccess } from "@lib/api-response";
 
 const falkor = createFalkorClient();
@@ -50,8 +46,8 @@ export interface SessionListItem {
 export async function GET(request: Request) {
 	try {
 		const { searchParams } = new URL(request.url);
-		const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
-		const offset = parseInt(searchParams.get("offset") || "0");
+		const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
+		const offset = parseInt(searchParams.get("offset") || "0", 10);
 
 		await falkor.connect();
 
@@ -70,7 +66,7 @@ export async function GET(request: Request) {
 			for (const row of result) {
 				// FalkorDB returns {s: {id, labels, properties}} structure
 				const node = row.s || row[0];
-				if (node && node.properties) {
+				if (node?.properties) {
 					// Properties are nested under node.properties
 					const props = node.properties;
 					const sessionId = props.id;
@@ -137,5 +133,5 @@ export async function GET(request: Request) {
 
 function truncatePreview(text: string, maxLength: number): string {
 	if (text.length <= maxLength) return text;
-	return text.slice(0, maxLength).trim() + "...";
+	return `${text.slice(0, maxLength).trim()}...`;
 }

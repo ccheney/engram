@@ -1,8 +1,4 @@
-import {
-	createFalkorClient,
-	type ThoughtNode,
-	type ThoughtProperties,
-} from "@engram/storage/falkor";
+import { createFalkorClient, type ThoughtNode } from "@engram/storage/falkor";
 import { apiError, apiSuccess } from "@lib/api-response";
 import { z } from "zod";
 
@@ -50,7 +46,7 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 			for (const row of result) {
 				// Access by column name 't' (from RETURN t)
 				const node = row.t;
-				if (node && node.properties) {
+				if (node?.properties) {
 					timeline.push({
 						...node.properties,
 						id: (node.properties.id as string) || String(node.id),

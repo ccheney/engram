@@ -13,11 +13,11 @@ mockMcp.createMastraStep = mock(
 	(name) =>
 		({
 			id: name,
-			execute: async ({ inputData }: any) => {
+			execute: async ({ inputData }: { inputData: unknown }) => {
 				console.log(`[MockExecution] Tool ${name} called with`, inputData);
 				return { result: "success" };
 			},
-		}) as any,
+		}) as ReturnType<typeof mockMcp.createMastraStep>,
 );
 
 const mockFalkor = {
@@ -40,7 +40,10 @@ describe("System E2E Simulation", () => {
 	});
 
 	it("should initialize decision engine", async () => {
-		const assembler = new ContextAssembler(mockSearch as any, mockFalkor as any);
+		const assembler = new ContextAssembler(
+			mockSearch as Parameters<typeof ContextAssembler>[0],
+			mockFalkor as Parameters<typeof ContextAssembler>[1],
+		);
 
 		const engine = new DecisionEngine(assembler, mockMcp);
 		engine.start();

@@ -1,6 +1,5 @@
-import { describe, expect, it, mock, spyOn } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { GraphWriter } from "./graph";
-import { now } from "./utils/time";
 
 const mockFalkorClient = {
 	connect: mock(async () => {}),

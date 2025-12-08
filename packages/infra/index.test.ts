@@ -14,7 +14,7 @@ const mockResource = class {
 
 mock.module("@pulumi/pulumi", () => ({
 	all: (args: any[]) => ({
-		apply: (fn: Function) => fn(args.map((a) => "mock-value")),
+		apply: (fn: Function) => fn(args.map((_a) => "mock-value")),
 	}),
 	Output: {
 		create: (val: any) => val,

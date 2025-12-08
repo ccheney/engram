@@ -13,7 +13,6 @@ mock.module("@engram/storage", () => ({
 // Mock MCP
 mock.module("@modelcontextprotocol/sdk/server/mcp.js", () => ({
 	McpServer: class {
-		constructor() {}
 		tool = mock(() => {});
 		connect = mock(async () => {});
 	},

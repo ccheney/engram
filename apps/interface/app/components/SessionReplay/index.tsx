@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReplayResponse, TimelineEvent } from "@lib/types";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface SessionReplayProps {
 	data: ReplayResponse | null;

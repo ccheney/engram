@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { Reranker } from "./reranker";
 
-const mockPipeline = mock(async (task: string, model: string) => {
+const mockPipeline = mock(async (_task: string, _model: string) => {
 	return async (input: any) => {
 		// Mock scoring logic: if text_pair contains "relevant", give high score
 		const doc = input.text_pair;

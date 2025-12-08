@@ -3,7 +3,7 @@
 import type { GraphNode } from "@lib/types";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import React, { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { LineageGraph } from "../../components/LineageGraph";
 import { SessionReplay } from "../../components/SessionReplay";
 import { useSessionStream } from "../../hooks/useSessionStream";

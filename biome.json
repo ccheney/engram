@@ -9,6 +9,11 @@
 		"ignoreUnknown": false,
 		"includes": ["**", "!**/dist", "!**/.next", "!**/node_modules", "!**/coverage", "!**/.turbo"]
 	},
+	"css": {
+		"linter": {
+			"enabled": false
+		}
+	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab",
@@ -19,9 +24,59 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noArrayIndexKey": "warn"
+			},
+			"a11y": {
+				"useButtonType": "warn",
+				"noSvgWithoutTitle": "off",
+				"noStaticElementInteractions": "off"
+			},
+			"complexity": {
+				"noUselessConstructor": "warn",
+				"noBannedTypes": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "warn"
+			},
+			"correctness": {
+				"noUnusedVariables": "warn",
+				"noUnusedFunctionParameters": "warn",
+				"noConstructorReturn": "warn"
+			}
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts", "**/*.test.tsx", "tests/**/*"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off",
+						"noArrayIndexKey": "off"
+					},
+					"correctness": {
+						"noUnusedVariables": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["scripts/**/*"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noExplicitAny": "off"
+					},
+					"correctness": {
+						"noUnusedFunctionParameters": "off"
+					}
+				}
+			}
+		}
+	],
 	"javascript": {
 		"formatter": {
 			"quoteStyle": "double"

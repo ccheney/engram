@@ -65,7 +65,7 @@ const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY:
 	// Calculate rings based on node count
 	const nodeCount = otherNodes.length;
 	const nodesPerRing = Math.min(12, Math.max(6, Math.ceil(Math.sqrt(nodeCount) * 2)));
-	const ringCount = Math.ceil(nodeCount / nodesPerRing);
+	const _ringCount = Math.ceil(nodeCount / nodesPerRing);
 	const baseRadius = 180;
 	const ringSpacing = 140;
 
@@ -214,9 +214,9 @@ const NeuralNode = React.memo(function NeuralNode({ data, selected, id }: NodePr
 		if (!label) return "Node";
 		// For UUIDs, show first 8 chars
 		if (label.match(/^[a-f0-9-]{36}$/i)) {
-			return label.slice(0, 8) + "...";
+			return `${label.slice(0, 8)}...`;
 		}
-		return label.length > 16 ? label.slice(0, 16) + "..." : label;
+		return label.length > 16 ? `${label.slice(0, 16)}...` : label;
 	}, [data.label]);
 
 	const isActive = selected || isHighlighted || isHovered;

@@ -3,7 +3,6 @@ import {
 	type FalkorEdge,
 	type FalkorNode,
 	type SessionNode,
-	type SessionProperties,
 	type ThoughtNode,
 } from "@engram/storage/falkor";
 import { createRedisSubscriber, type SessionUpdate } from "@engram/storage/redis";
@@ -189,7 +188,7 @@ async function getFullTimeline(sessionId: string) {
 	if (Array.isArray(result)) {
 		for (const row of result) {
 			const node = row.t;
-			if (node && node.properties) {
+			if (node?.properties) {
 				timeline.push({ ...node.properties, id: node.properties.id, type: "thought" });
 			}
 		}
@@ -228,7 +227,7 @@ async function getAllSessions(limit = 50) {
 	if (Array.isArray(result)) {
 		for (const row of result) {
 			const node = row.s;
-			if (node && node.properties) {
+			if (node?.properties) {
 				const props = node.properties;
 				const sessionStartedAt = props.started_at ?? now;
 				const sessionLastEventAt = props.last_event_at ?? row.lastEventAt ?? sessionStartedAt;

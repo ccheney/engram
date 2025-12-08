@@ -66,7 +66,7 @@ describe("Rehydrator", () => {
 
 		try {
 			await rehydrator.rehydrate("session-1");
-		} catch (e) {
+		} catch (_e) {
 			// Ignore expected error from vfs.loadSnapshot if it fails on non-gzip data
 		}
 

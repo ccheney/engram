@@ -2,10 +2,8 @@ import type { SearchRetriever } from "@engram/search-core";
 import type { FalkorClient } from "@engram/storage";
 
 export class ContextAssembler {
-	constructor(
-		private search: SearchRetriever,
-		private memory: FalkorClient,
-	) {}
+	// biome-ignore lint/complexity/noUselessConstructor: DI placeholder - will use these when implemented
+	constructor(_search: SearchRetriever, _memory: FalkorClient) {}
 
 	async assembleContext(_sessionId: string, _query: string, _tokenLimit = 8000): Promise<string> {
 		// 1. System Prompt (Fixed)

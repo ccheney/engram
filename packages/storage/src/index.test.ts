@@ -1,4 +1,4 @@
-import { describe, expect, it, mock, spyOn } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { createFalkorClient, FalkorClient } from "./falkor";
 import { createKafkaClient, KafkaClient } from "./kafka";
 

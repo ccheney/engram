@@ -253,48 +253,48 @@ body::after {
 
 /* Neural node styling for React Flow */
 .react-flow__node {
-	transition: all 0.3s var(--transition-smooth) !important;
+	transition: all 0.3s var(--transition-smooth);
 }
 
 .react-flow__node:hover {
-	z-index: 100 !important;
+	z-index: 100;
 }
 
 .react-flow__edge-path {
-	stroke-width: 2 !important;
+	stroke-width: 2;
 }
 
 .react-flow__background {
-	background: transparent !important;
+	background: transparent;
 }
 
 .react-flow__minimap {
-	background: rgba(var(--void-light), 0.8) !important;
-	border-radius: 8px !important;
-	border: 1px solid rgba(var(--neural-cyan), 0.2) !important;
+	background: rgba(var(--void-light), 0.8);
+	border-radius: 8px;
+	border: 1px solid rgba(var(--neural-cyan), 0.2);
 }
 
 .react-flow__controls {
-	background: rgba(var(--void-light), 0.8) !important;
-	border-radius: 8px !important;
-	border: 1px solid rgba(var(--neural-cyan), 0.2) !important;
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+	background: rgba(var(--void-light), 0.8);
+	border-radius: 8px;
+	border: 1px solid rgba(var(--neural-cyan), 0.2);
+	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .react-flow__controls-button {
-	background: transparent !important;
-	border: none !important;
-	color: rgb(var(--text-secondary)) !important;
-	transition: all 0.2s ease !important;
+	background: transparent;
+	border: none;
+	color: rgb(var(--text-secondary));
+	transition: all 0.2s ease;
 }
 
 .react-flow__controls-button:hover {
-	background: rgba(var(--neural-cyan), 0.1) !important;
-	color: rgb(var(--neural-cyan)) !important;
+	background: rgba(var(--neural-cyan), 0.1);
+	color: rgb(var(--neural-cyan));
 }
 
 .react-flow__controls-button svg {
-	fill: currentColor !important;
+	fill: currentColor;
 }
 
 /* Utility classes */
@@ -436,29 +436,29 @@ input::placeholder {
 
 /* Enhanced React Flow styling */
 .react-flow__edge-path {
-	stroke-linecap: round !important;
+	stroke-linecap: round;
 	transition:
 		stroke-width 0.3s ease,
-		opacity 0.3s ease !important;
+		opacity 0.3s ease;
 }
 
 .react-flow__edge:hover .react-flow__edge-path {
-	stroke-width: 3 !important;
-	opacity: 1 !important;
+	stroke-width: 3;
+	opacity: 1;
 }
 
 .react-flow__node {
 	transition:
 		transform 0.2s ease,
-		filter 0.2s ease !important;
+		filter 0.2s ease;
 }
 
 .react-flow__node:hover {
-	z-index: 1000 !important;
+	z-index: 1000;
 }
 
 .react-flow__minimap-mask {
-	fill: rgba(8, 10, 15, 0.85) !important;
+	fill: rgba(8, 10, 15, 0.85);
 }
 
 /* Message card animations */
@@ -510,9 +510,9 @@ input::placeholder {
 /* Improved focus ring for accessibility */
 .react-flow__node:focus-visible,
 .react-flow__edge:focus-visible {
-	outline: 2px solid rgba(var(--neural-cyan), 0.6) !important;
-	outline-offset: 4px !important;
-	border-radius: 12px !important;
+	outline: 2px solid rgba(var(--neural-cyan), 0.6);
+	outline-offset: 4px;
+	border-radius: 12px;
 }
 
 /* Stats bar styling */

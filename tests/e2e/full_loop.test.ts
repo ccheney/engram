@@ -66,7 +66,7 @@ describe("E2E Full Loop", () => {
 						break;
 					}
 				}
-			} catch (e) {
+			} catch (_e) {
 				// ignore fetch errors (service might be starting or network glitch)
 			}
 			await new Promise((r) => setTimeout(r, 1000));

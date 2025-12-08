@@ -17,7 +17,7 @@ describe("Redactor", () => {
 	});
 
 	it("should redact OpenAI keys", () => {
-		const key = "sk-" + "a".repeat(48);
+		const key = `sk-${"a".repeat(48)}`;
 		expect(redactor.redact(`Key: ${key}`)).toBe("Key: [OPENAI_KEY_REDACTED]");
 	});
 

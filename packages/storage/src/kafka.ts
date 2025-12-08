@@ -1,4 +1,4 @@
-import { createRequire } from "module";
+import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { Kafka } = require("@confluentinc/kafka-javascript").KafkaJS;
@@ -50,7 +50,7 @@ export class KafkaClient {
 	private producer: Producer | null = null;
 	private brokers: string;
 
-	constructor(brokers: string[] = ["localhost:19092"], clientId: string = "engram-client") {
+	constructor(brokers: string[] = ["localhost:19092"], _clientId: string = "engram-client") {
 		this.brokers = brokers.join(",");
 		this.kafka = new Kafka({});
 	}

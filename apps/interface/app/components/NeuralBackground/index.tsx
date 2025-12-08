@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 
 // Vertex shader for the neural particles
@@ -116,7 +116,7 @@ const lineFragmentShader = `
 
 function NeuralParticles({ count = 500 }: { count?: number }) {
 	const points = useRef<THREE.Points>(null);
-	const { size, viewport } = useThree();
+	useThree(); // Context subscription for rendering
 
 	const particlesPosition = useMemo(() => {
 		const positions = new Float32Array(count * 3);

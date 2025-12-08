@@ -7,7 +7,6 @@ const mockGetCollections = mock(async () => ({ collections: [] }));
 mock.module("@qdrant/js-client-rest", () => {
 	return {
 		QdrantClient: class {
-			constructor() {}
 			createCollection = mockCreateCollection;
 			getCollections = mockGetCollections;
 		},

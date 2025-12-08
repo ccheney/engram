@@ -11,7 +11,7 @@
  * Run with: npx playwright test app/e2e/session-realtime.spec.ts
  */
 
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 // Test configuration
 const BASE_URL = "http://localhost:5000";
@@ -61,7 +61,7 @@ test.describe("Session Page Real-time Features", () => {
 
 	test("should update data automatically via polling", async ({ page }) => {
 		// Get initial counts
-		const initialNodeCount = await page.getByText(/\d+ nodes/).textContent();
+		const _initialNodeCount = await page.getByText(/\d+ nodes/).textContent();
 
 		// Wait for poll interval (2-3 seconds)
 		await page.waitForTimeout(3500);
@@ -79,7 +79,7 @@ test.describe("Session Page Real-time Features", () => {
 		await page.getByRole("link", { name: "SOUL" }).click();
 
 		// Should be back on home page
-		await expect(page).toHaveURL(BASE_URL + "/");
+		await expect(page).toHaveURL(`${BASE_URL}/`);
 		await expect(page.getByRole("heading", { name: "SOUL SYSTEM" })).toBeVisible();
 	});
 

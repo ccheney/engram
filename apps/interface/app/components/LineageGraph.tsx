@@ -109,6 +109,15 @@ const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY:
 		}
 	}
 
+	// Sort children within each parent group by sequence_index (descending to match thought stream)
+	for (const [parentId, children] of fileTouchByParent) {
+		children.sort((a, b) => {
+			const seqA = (a.data?.sequence_index as number) ?? 0;
+			const seqB = (b.data?.sequence_index as number) ?? 0;
+			return seqB - seqA; // Descending
+		});
+	}
+
 	// Calculate height needed for each Turn's subtree
 	const turnHeights = new Map<string, number>();
 	for (const turn of turnNodes) {

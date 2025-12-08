@@ -43,6 +43,16 @@ function cleanThinkingMarkers(content: string): string {
 function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
     if (!timeline || timeline.length === 0) return [];
 
+    // Deduplicate timeline events by ID
+    const seen = new Set<string>();
+    const deduped = timeline.filter(event => {
+        if (!event) return false;
+        const id = event.id as string;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+    });
+
     const messages: ConsolidatedMessage[] = [];
     let currentMessage: ConsolidatedMessage | null = null;
     let tokenBuffer: string[] = [];
@@ -60,7 +70,7 @@ function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
         currentMessage = null;
     };
 
-    for (const event of timeline) {
+    for (const event of deduped) {
         if (!event) continue;
 
         const content = (event.content || event.message || event.text || event.data || '') as string;
@@ -946,7 +956,7 @@ export function SessionReplay({ data, selectedNodeId, onEventHover }: SessionRep
 
                                     return (
                                         <div
-                                            key={msg.id}
+                                            key={`${msg.id}-${i}`}
                                             style={{
                                                 opacity: isHighlighted ? 1 : 0.4,
                                                 transition: 'opacity 0.2s ease',

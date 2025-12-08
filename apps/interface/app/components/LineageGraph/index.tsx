@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useCallback, useMemo, useState, createContext, useContext } from 'react';
+import React, { useEffect, useCallback, useMemo, useState, useRef, createContext, useContext } from 'react';
 import {
     ReactFlow,
     useNodesState,
@@ -632,14 +632,35 @@ function GraphStats({ nodeCount, edgeCount }: { nodeCount: number; edgeCount: nu
 export function LineageGraph({ data, onNodeClick, highlightedNodeId, onNodeHover }: LineageGraphProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const lastDataKeyRef = useRef<string>('');
 
-    // Initialize nodes and edges when data changes (not on highlight change)
+    // Create a stable key based on node/edge IDs to detect actual data changes
+    const dataKey = useMemo(() => {
+        if (!data?.nodes?.length) return '';
+        const nodeIds = data.nodes.map(n => n.id).sort().join(',');
+        const linkKeys = data.links.map(l => `${l.source}-${l.target}`).sort().join(',');
+        return `${nodeIds}|${linkKeys}`;
+    }, [data]);
+
+    // Initialize nodes and edges only when actual data content changes
     useEffect(() => {
+        // Empty data case
         if (!data || !data.nodes || data.nodes.length === 0) {
-            setNodes([]);
-            setEdges([]);
+            if (lastDataKeyRef.current !== '') {
+                setNodes([]);
+                setEdges([]);
+                lastDataKeyRef.current = '';
+            }
             return;
         }
+
+        // Skip if data hasn't actually changed (same content)
+        if (dataKey === lastDataKeyRef.current) {
+            return;
+        }
+
+        // Update ref to prevent re-processing same data
+        lastDataKeyRef.current = dataKey;
 
         const initialNodes: Node[] = data.nodes.map(n => ({
             id: n.id,
@@ -647,7 +668,6 @@ export function LineageGraph({ data, onNodeClick, highlightedNodeId, onNodeHover
             data: {
                 label: n.label || n.id,
                 type: n.type,
-                // Don't set isHighlighted here - let the node component read from ref
                 ...n,
             },
             type: 'neural',
@@ -664,7 +684,6 @@ export function LineageGraph({ data, onNodeClick, highlightedNodeId, onNodeHover
                 strokeWidth: 1.5,
                 opacity: 0.6,
             },
-            // Hide labels by default to reduce clutter
             label: undefined,
         }));
 
@@ -680,7 +699,7 @@ export function LineageGraph({ data, onNodeClick, highlightedNodeId, onNodeHover
 
         setNodes(layoutedNodes);
         setEdges(layoutedEdges);
-    }, [data, setNodes, setEdges]);
+    }, [dataKey, data, setNodes, setEdges]);
 
     const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
         onNodeClick?.(node.data as unknown as GraphNode);

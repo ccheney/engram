@@ -71,7 +71,7 @@ const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY:
 		.sort((a, b) => {
 			const seqA = (a.data?.sequence_index as number) ?? 0;
 			const seqB = (b.data?.sequence_index as number) ?? 0;
-			return seqA - seqB;
+			return seqB - seqA; // Descending to match thought stream order
 		});
 	const otherNodes = nodes.filter((n) => {
 		const type = (n.data?.type as string)?.toLowerCase();

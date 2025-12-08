@@ -47,6 +47,18 @@ body::before {
 	position: fixed;
 	inset: 0;
 	background:
+		/* Upper gradient for header glassmorphism */
+		radial-gradient(
+			ellipse 120% 40% at 30% 0%,
+			rgba(var(--neural-purple), 0.12) 0%,
+			transparent 60%
+		),
+		radial-gradient(
+			ellipse 100% 30% at 70% 5%,
+			rgba(var(--neural-cyan), 0.08) 0%,
+			transparent 50%
+		),
+		/* Original gradients */
 		radial-gradient(
 			ellipse 80% 50% at 20% 40%,
 			rgba(var(--neural-purple), 0.15) 0%,

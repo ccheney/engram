@@ -204,8 +204,8 @@ export default function HomePage() {
 				paddingBottom: `${FOOTER_HEIGHT + 24}px`, // Safe area: footer height + extra padding
 			}}
 		>
-			{/* Background decorations */}
-			<div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+			{/* Background decorations - fixed to cover viewport including header */}
+			<div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1 }}>
 				<Suspense fallback={null}>
 					<NeuralBackground />
 				</Suspense>
@@ -224,12 +224,19 @@ export default function HomePage() {
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "center",
-					// Solid background to prevent content showing through
-					backgroundColor: "rgb(8, 10, 15)",
-					// Bottom border with subtle line
-					borderBottom: "1px solid rgba(100, 116, 139, 0.15)",
-					// Subtle inner glow
-					boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.02), 0 4px 20px rgba(0,0,0,0.5)",
+					// Glassmorphism - balanced translucency
+					background: `linear-gradient(
+						180deg,
+						rgba(8, 10, 15, 0.35) 0%,
+						rgba(15, 20, 30, 0.3) 100%
+					)`,
+					backdropFilter: "blur(8px) saturate(150%)",
+					WebkitBackdropFilter: "blur(8px) saturate(150%)",
+					// Bottom border with cyan glow
+					borderBottom: "1px solid rgba(0, 245, 212, 0.15)",
+					// Glass shadow with subtle inner light
+					boxShadow:
+						"inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.1), 0 4px 30px rgba(0,0,0,0.3)",
 				}}
 			>
 				{/* Inner container matching body width */}

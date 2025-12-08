@@ -35,15 +35,19 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 		// biome-ignore lint/suspicious/noExplicitAny: FalkorDB unknown return
 		const result: any = await falkor.query(cypher, { sessionId });
 
-		// Transform result: Falkor usually returns [[Node], [Node], ...] for this query
+		// Transform result: FalkorDB returns named columns { t: Node }
 		// We want a flat array of objects
 		const timeline = [];
 		if (Array.isArray(result)) {
 			for (const row of result) {
-				const node = row[0];
+				// Access by column name 't' (from RETURN t)
+				const node = row.t;
 				if (node && node.properties) {
-					// Ensure we have an object
-					timeline.push({ ...node.properties, id: node.properties.id || node.id });
+					timeline.push({
+						...node.properties,
+						id: node.properties.id || node.id,
+						type: "thought",
+					});
 				}
 			}
 		}

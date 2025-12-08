@@ -56,59 +56,70 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 		const nodesMap = new Map<string, unknown>();
 		const links: unknown[] = [];
 
-		if (res) {
-			// FalkorDB response structure might vary based on client/driver.
-			// Assuming standard array of rows.
-			// row[0] = Session Node
-			// row[1] = Array of nodes in path
-			// row[2] = Array of edges in path
+		// Build a map from FalkorDB internal IDs to our UUIDs
+		const internalIdToUuid = new Map<number, string>();
 
+		if (res && Array.isArray(res)) {
+			// FalkorDB returns named columns: { s, path_nodes, path_edges }
 			for (const row of res) {
-				// Session Node
-				const sessionNode = row[0];
-				if (sessionNode?.id) {
-					nodesMap.set(sessionNode.id, {
-						...sessionNode.properties,
-						id: sessionNode.id,
-						label: "Session",
-					});
-				}
-
-				// Path Nodes
-				const pathNodes = row[1];
-				if (Array.isArray(pathNodes)) {
-					for (const n of pathNodes) {
-						if (n?.id) {
-							// Extract label if available (might need raw node structure inspection)
-							// Assuming n.labels is array or n.label is string
-							const label = n.labels?.[0] || "Unknown";
-							nodesMap.set(n.id, { ...n.properties, id: n.id, label });
+				// Session Node - accessed by column name
+				const sessionNode = row.s;
+				if (sessionNode) {
+					const uuid = sessionNode.properties?.id;
+					if (uuid) {
+						internalIdToUuid.set(sessionNode.id, uuid);
+						if (!nodesMap.has(uuid)) {
+							nodesMap.set(uuid, {
+								...sessionNode.properties,
+								id: uuid,
+								label: "Session",
+								type: "session",
+							});
 						}
 					}
 				}
 
-				// Path Edges
-				const pathEdges = row[2];
+				// Path Nodes - accessed by column name
+				const pathNodes = row.path_nodes;
+				if (Array.isArray(pathNodes)) {
+					for (const n of pathNodes) {
+						if (n) {
+							const uuid = n.properties?.id;
+							if (uuid) {
+								internalIdToUuid.set(n.id, uuid);
+								if (!nodesMap.has(uuid)) {
+									const label = n.labels?.[0] || "Unknown";
+									nodesMap.set(uuid, {
+										...n.properties,
+										id: uuid,
+										label,
+										type: label.toLowerCase(),
+									});
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Second pass: process edges using the internal ID to UUID map
+			for (const row of res) {
+				const pathEdges = row.path_edges;
 				if (Array.isArray(pathEdges)) {
 					for (const e of pathEdges) {
-						// Edge structure: { id, type, startNodeId, endNodeId, properties }
-						// We need to ensure uniqueness?
-						// FalkorDB returns internal IDs usually? We used ULID as 'id' property on nodes.
-						// Edges might not have ULID property unless we added it.
-						// Standard edges have types.
-						// Let's assume we can link by internal IDs or properties.
-						// Ideally we use our 'id' property.
-						// If edge doesn't have a user-space ID, we might generate one or use index.
-						// For D3/Vis, source/target needed.
-						// FalkorDB edge object usually has src/dest relation.
+						if (e) {
+							const sourceUuid = internalIdToUuid.get(e.sourceId || e.srcNodeId);
+							const targetUuid = internalIdToUuid.get(e.destinationId || e.destNodeId);
 
-						// Simplified edge representation
-						links.push({
-							source: e.srcNodeId || e.start, // Check driver mapping
-							target: e.destNodeId || e.end,
-							type: e.type || e.relation,
-							properties: e.properties,
-						});
+							if (sourceUuid && targetUuid) {
+								links.push({
+									source: sourceUuid,
+									target: targetUuid,
+									type: e.relationshipType || e.relation || e.type,
+									properties: e.properties,
+								});
+							}
+						}
 					}
 				}
 			}

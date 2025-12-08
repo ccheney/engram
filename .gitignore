@@ -9,3 +9,4 @@ docker-compose.override.yml
 coverage
 bun.lockb
 docs/_/
+*.tsbuildinfo

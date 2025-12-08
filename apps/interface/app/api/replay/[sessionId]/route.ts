@@ -1,20 +1,13 @@
-import { createFalkorClient, type ThoughtNode } from "@engram/storage/falkor";
+import { getSessionTimeline } from "@lib/graph-queries";
 import { apiError, apiSuccess } from "@lib/api-response";
 import { z } from "zod";
-
-const falkor = createFalkorClient();
-
-// Typed query result interface
-interface ReplayRow {
-	t?: ThoughtNode;
-}
 
 export const _ReplayParams = z.object({
 	sessionId: z.string(),
 });
 
 /**
- * Get linear session history (replay)
+ * Get linear session history (replay) - returns Turn nodes
  * @pathParams ReplayParams
  */
 export async function GET(_request: Request, props: { params: Promise<{ sessionId: string }> }) {
@@ -25,38 +18,8 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 			return apiError("Missing sessionId", "INVALID_REQUEST", 400);
 		}
 
-		await falkor.connect();
-
-		// Query for linear history: Session -> Thought -> Thought ...
-		// We capture Thoughts and any connected ToolCalls or observations roughly in order.
-		// For now, let's stick to the 'get_session_history' logic: chain of Thoughts.
-		const cypher = `
-            MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(first:Thought)
-            MATCH p = (first)-[:NEXT*0..100]->(t:Thought)
-            RETURN t
-            ORDER BY t.vt_start ASC
-        `;
-
-		const result = await falkor.query<ReplayRow>(cypher, { sessionId });
-
-		// Transform result: FalkorDB returns named columns { t: Node }
-		// We want a flat array of objects
-		const timeline: Record<string, unknown>[] = [];
-		if (Array.isArray(result)) {
-			for (const row of result) {
-				// Access by column name 't' (from RETURN t)
-				const node = row.t;
-				if (node?.properties) {
-					timeline.push({
-						...node.properties,
-						id: (node.properties.id as string) || String(node.id),
-						type: "thought",
-					});
-				}
-			}
-		}
-
-		return apiSuccess({ timeline });
+		const data = await getSessionTimeline(sessionId);
+		return apiSuccess(data);
 	} catch (error: unknown) {
 		const message = error instanceof Error ? error.message : String(error);
 		return apiError(message, "REPLAY_QUERY_FAILED");

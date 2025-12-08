@@ -247,28 +247,91 @@ export async function getSessionLineage(sessionId: string): Promise<LineageData>
 }
 
 /**
- * Get timeline of Turns for a session
+ * Get timeline of events for a session (Turns and Reasoning nodes)
+ * Returns a flat timeline that SessionReplay can process
  */
 export async function getSessionTimeline(sessionId: string): Promise<TimelineData> {
 	await falkor.connect();
 
-	const cypher = `
+	// Query 1: Get Turns
+	const turnsQuery = `
 		MATCH (s:Session {id: $sessionId})-[:HAS_TURN]->(t:Turn)
 		RETURN t
 		ORDER BY t.sequence_index ASC
 	`;
+	const turnsResult = await falkor.query<{ t?: FalkorNode }>(turnsQuery, { sessionId });
 
-	const result = await falkor.query<{ t?: FalkorNode }>(cypher, { sessionId });
+	// Query 2: Get all Reasoning nodes for this session's Turns
+	const reasoningQuery = `
+		MATCH (s:Session {id: $sessionId})-[:HAS_TURN]->(t:Turn)-[:CONTAINS]->(r:Reasoning)
+		RETURN t.id as turnId, r
+		ORDER BY t.sequence_index ASC, r.sequence_index ASC
+	`;
+	const reasoningResult = await falkor.query<{ turnId?: string; r?: FalkorNode }>(reasoningQuery, { sessionId });
+
+	// Build a map of turnId -> reasoning nodes
+	const reasoningByTurn = new Map<string, FalkorNode[]>();
+	if (Array.isArray(reasoningResult)) {
+		for (const row of reasoningResult) {
+			const turnId = row.turnId;
+			const reasoning = row.r;
+			if (turnId && reasoning) {
+				const list = reasoningByTurn.get(turnId) || [];
+				list.push(reasoning);
+				reasoningByTurn.set(turnId, list);
+			}
+		}
+	}
+
 	const timeline: TimelineEvent[] = [];
 
-	if (Array.isArray(result)) {
-		for (const row of result) {
-			const node = row.t;
-			if (node?.properties) {
+	if (Array.isArray(turnsResult)) {
+		for (const row of turnsResult) {
+			const turn = row.t;
+			if (!turn?.properties) continue;
+
+			const props = turn.properties;
+			const turnId = props.id as string;
+			const vtStart = props.vt_start as number;
+			const timestamp = vtStart ? new Date(vtStart).toISOString() : new Date().toISOString();
+
+			// Add user query event
+			const userContent = props.user_content as string;
+			if (userContent) {
 				timeline.push({
-					...node.properties,
-					id: node.properties.id as string,
-					type: "turn",
+					id: `${turnId}-query`,
+					type: "thought",
+					content: userContent,
+					timestamp,
+				});
+			}
+
+			// Add reasoning events (thinking blocks)
+			const reasoningNodes = reasoningByTurn.get(turnId) || [];
+			for (const r of reasoningNodes) {
+				if (r?.properties) {
+					// Reasoning nodes use 'preview' property for content
+					const content = (r.properties.preview || r.properties.content) as string;
+					if (content) {
+						timeline.push({
+							id: r.properties.id as string || `${turnId}-reasoning`,
+							type: "thought",
+							content: `<thinking>${content}</thinking>`,
+							timestamp,
+						});
+					}
+				}
+			}
+
+			// Add assistant response event
+			const assistantPreview = props.assistant_preview as string;
+			if (assistantPreview) {
+				timeline.push({
+					id: `${turnId}-response`,
+					type: "response",
+					content: assistantPreview,
+					timestamp,
+					tokenCount: (props.output_tokens as number) || 0,
 				});
 			}
 		}

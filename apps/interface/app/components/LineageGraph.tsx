@@ -69,9 +69,10 @@ const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY:
 	const fileTouchNodes = nodes
 		.filter((n) => (n.data?.type as string)?.toLowerCase() === "filetouch")
 		.sort((a, b) => {
-			const seqA = (a.data?.sequence_index as number) ?? 0;
-			const seqB = (b.data?.sequence_index as number) ?? 0;
-			return seqB - seqA; // Descending to match thought stream order
+			// FileTouch nodes don't have sequence_index, use vt_start timestamp instead
+			const vtA = (a.data?.vt_start as number) ?? 0;
+			const vtB = (b.data?.vt_start as number) ?? 0;
+			return vtA - vtB; // Ascending by time (earliest first)
 		});
 	const otherNodes = nodes.filter((n) => {
 		const type = (n.data?.type as string)?.toLowerCase();
@@ -109,12 +110,12 @@ const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY:
 		}
 	}
 
-	// Sort children within each parent group by sequence_index (descending to match thought stream)
+	// Sort children within each parent group by vt_start (ascending - earliest first at top)
 	for (const [parentId, children] of fileTouchByParent) {
 		children.sort((a, b) => {
-			const seqA = (a.data?.sequence_index as number) ?? 0;
-			const seqB = (b.data?.sequence_index as number) ?? 0;
-			return seqB - seqA; // Descending
+			const vtA = (a.data?.vt_start as number) ?? 0;
+			const vtB = (b.data?.vt_start as number) ?? 0;
+			return vtA - vtB; // Ascending by time
 		});
 	}
 

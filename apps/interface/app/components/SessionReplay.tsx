@@ -1377,6 +1377,8 @@ export function SessionReplay({ data, selectedNodeId, onEventHover }: SessionRep
 										position: "relative",
 										paddingLeft: "32px",
 										marginTop: "8px",
+										opacity: isHighlighted ? 1 : 0.4,
+										transition: "opacity 0.2s ease",
 									}}
 									onMouseEnter={() => handleHover(msg.nodeIds)}
 									onMouseLeave={() => handleHover(null)}

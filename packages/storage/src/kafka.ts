@@ -50,7 +50,7 @@ export class KafkaClient {
 	private producer: Producer | null = null;
 	private brokers: string;
 
-	constructor(brokers: string[] = ["localhost:19092"], clientId: string = "soul-client") {
+	constructor(brokers: string[] = ["localhost:19092"], clientId: string = "engram-client") {
 		this.brokers = brokers.join(",");
 		this.kafka = new Kafka({});
 	}

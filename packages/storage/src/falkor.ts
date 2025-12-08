@@ -96,7 +96,7 @@ export class FalkorClient {
 	private dbPromise;
 	private db: FalkorDB | null = null;
 	private graph: Graph | null = null;
-	private graphName = "SoulGraph";
+	private graphName = "EngramGraph";
 
 	constructor(url: string = "redis://localhost:6379") {
 		const urlObj = new URL(url);

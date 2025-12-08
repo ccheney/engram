@@ -21,7 +21,7 @@ export type LoggerOptions = LegacyLoggerOptions;
 
 export const createLogger = (options: LegacyLoggerOptions = {}) => {
 	return createNodeLogger({
-		service: "soul-system", // Default service name
+		service: "engram-system", // Default service name
 		level: (options.level as any) || "info",
 		base: { component: options.component },
 	});

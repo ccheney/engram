@@ -8,7 +8,7 @@ export class SearchRetriever {
 	private client: QdrantClient;
 	private textEmbedder: TextEmbedder;
 	private classifier: QueryClassifier;
-	private collectionName = "soul_memory";
+	private collectionName = "engram_memory";
 
 	constructor(url: string = "http://localhost:6333") {
 		this.client = new QdrantClient({ url });

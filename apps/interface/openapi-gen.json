@@ -1,9 +1,9 @@
 {
 	"openapi": "3.0.0",
 	"info": {
-		"title": "The Soul API",
+		"title": "Engram API",
 		"version": "1.0.0",
-		"description": "Observability and Control Interface for The Soul"
+		"description": "Observability and Control Interface for Engram"
 	},
 	"servers": [
 		{

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: falkordb
-  namespace: soul-infra
+  namespace: engram-infra
 spec:
   serviceName: "falkordb"
   replicas: 1 # Start with 1 for simplicity (FalkorDB OSS is single node)
@@ -44,7 +44,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: falkordb
-  namespace: soul-infra
+  namespace: engram-infra
 spec:
   ports:
   - port: 6379

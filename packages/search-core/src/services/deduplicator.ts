@@ -4,7 +4,7 @@ import { TextEmbedder } from "./text-embedder";
 export class Deduplicator {
 	private client: QdrantClient;
 	private textEmbedder: TextEmbedder;
-	private collectionName = "soul_memory";
+	private collectionName = "engram_memory";
 	// Threshold for considering content "duplicate"
 	// 0.95 is usually very close for high-dimensional embeddings
 	private threshold = 0.95;

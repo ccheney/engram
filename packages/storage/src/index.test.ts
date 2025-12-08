@@ -69,8 +69,8 @@ describe("Storage Package", () => {
 
 			expect(mockRedisClient.sendCommand).toHaveBeenCalled();
 			const lastCall = mockRedisClient.sendCommand.mock.calls[0];
-			// [ 'GRAPH.QUERY', 'SoulGraph', 'MATCH (n) RETURN n' ]
-			expect(lastCall[0]).toEqual(["GRAPH.QUERY", "SoulGraph", query]);
+			// [ 'GRAPH.QUERY', 'EngramGraph', 'MATCH (n) RETURN n' ]
+			expect(lastCall[0]).toEqual(["GRAPH.QUERY", "EngramGraph", query]);
 		});
 
 		it("should replace parameters in query", async () => {

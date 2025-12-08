@@ -49,7 +49,7 @@ describe("SearchRetriever", () => {
 		expect(mockEmbedder.embedQuery).toHaveBeenCalledWith("test query");
 		expect(mockQdrantClient.search).toHaveBeenCalled();
 		const call = mockQdrantClient.search.mock.calls[0];
-		expect(call[0]).toBe("soul_memory");
+		expect(call[0]).toBe("engram_memory");
 		expect(call[1].vector.name).toBe("dense");
 	});
 

@@ -25,5 +25,5 @@ external:
 storage:
   tieredConfig:
     cloud_storage_enabled: "true"
-    cloud_storage_bucket: "soul-redpanda-tiered-storage"
+    cloud_storage_bucket: "engram-redpanda-tiered-storage"
     cloud_storage_region: "us-central1"

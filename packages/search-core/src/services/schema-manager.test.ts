@@ -24,13 +24,13 @@ describe("SchemaManager", () => {
 		expect(mockGetCollections).toHaveBeenCalled();
 		expect(mockCreateCollection).toHaveBeenCalled();
 		const call = mockCreateCollection.mock.calls[0];
-		expect(call[0]).toBe("soul_memory");
+		expect(call[0]).toBe("engram_memory");
 		expect(call[1]).toHaveProperty("vectors.dense");
 	});
 
 	it("should skip creation if exists", async () => {
 		mockGetCollections.mockResolvedValueOnce({
-			collections: [{ name: "soul_memory" }],
+			collections: [{ name: "engram_memory" }],
 		});
 		mockCreateCollection.mockClear();
 

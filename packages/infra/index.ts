@@ -2,18 +2,18 @@ import * as gcp from "@pulumi/gcp";
 import * as pulumi from "@pulumi/pulumi";
 
 // Create a GCP Network
-const network = new gcp.compute.Network("soul-network", {
+const network = new gcp.compute.Network("engram-network", {
 	autoCreateSubnetworks: false,
 });
 
-const subnet = new gcp.compute.Subnetwork("soul-subnet", {
+const subnet = new gcp.compute.Subnetwork("engram-subnet", {
 	ipCidrRange: "10.0.0.0/16",
 	region: "us-central1",
 	network: network.id,
 });
 
 // Create a GKE Autopilot Cluster
-const cluster = new gcp.container.Cluster("soul-data-cluster", {
+const cluster = new gcp.container.Cluster("engram-data-cluster", {
 	location: "us-central1",
 	network: network.name,
 	subnetwork: subnet.name,

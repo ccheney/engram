@@ -55,7 +55,7 @@ export class GCSBlobStore implements BlobStore {
 
 export const createBlobStore = (type: "fs" | "gcs" = "fs"): BlobStore => {
 	if (type === "gcs") {
-		return new GCSBlobStore(process.env.GCS_BUCKET || "soul-blobs");
+		return new GCSBlobStore(process.env.GCS_BUCKET || "engram-blobs");
 	}
 	return new FileSystemBlobStore(process.env.BLOB_STORAGE_PATH || "./data/blobs");
 };

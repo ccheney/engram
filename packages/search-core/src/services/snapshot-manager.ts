@@ -2,7 +2,7 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 
 export class SnapshotManager {
 	private client: QdrantClient;
-	private collectionName = "soul_memory";
+	private collectionName = "engram_memory";
 
 	constructor(url: string = "http://localhost:6333") {
 		this.client = new QdrantClient({ url });

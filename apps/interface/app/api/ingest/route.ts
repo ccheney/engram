@@ -2,8 +2,8 @@ import { apiError, apiSuccess } from "@lib/api-response";
 import { UserRole, withRole } from "@lib/rbac";
 import { withTelemetry } from "@lib/telemetry";
 import { validate } from "@lib/validate";
-import { RawStreamEventSchema } from "@the-soul/events";
-import { createKafkaClient } from "@the-soul/storage";
+import { RawStreamEventSchema } from "@engram/events";
+import { createKafkaClient } from "@engram/storage";
 import type { z } from "zod";
 
 // Initialize Kafka

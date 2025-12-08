@@ -2,7 +2,7 @@ import { describe, it, expect, mock } from "bun:test";
 import { server } from "./index";
 
 // Mock Falkor
-mock.module("@the-soul/storage", () => ({
+mock.module("@engram/storage", () => ({
     createFalkorClient: () => ({
         connect: mock(async () => {}),
         query: mock(async () => []),

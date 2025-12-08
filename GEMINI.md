@@ -1,4 +1,4 @@
-# The Soul
+# Engram
 
 A bitemporal, graph-backed intelligent agent system designed as a TypeScript monorepo.
 

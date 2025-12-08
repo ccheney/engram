@@ -643,7 +643,7 @@ function LoadingState() {
     );
 }
 
-// Empty state - Monochrome palette
+// Empty state - Monochrome + Amber aesthetic
 function EmptyState() {
     return (
         <div style={{
@@ -652,41 +652,101 @@ function EmptyState() {
             alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
-            gap: '16px',
+            gap: '20px',
             padding: '40px',
+            textAlign: 'center',
         }}>
-            <div style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                background: 'rgba(148, 163, 184, 0.06)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(148, 163, 184, 0.4)" strokeWidth="1.5">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
+            {/* Animated stream icon */}
+            <div style={{ position: 'relative', width: '64px', height: '64px' }}>
+                {/* Outer pulsing ring */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        inset: '-4px',
+                        borderRadius: '50%',
+                        border: '1px solid rgba(251, 191, 36, 0.2)',
+                        animation: 'emptyPulseStream 3s ease-in-out infinite',
+                    }}
+                />
+                {/* Main icon container */}
+                <div
+                    style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(148, 163, 184, 0.04) 100%)',
+                        border: '1px solid rgba(148, 163, 184, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.03)',
+                    }}
+                >
+                    <svg
+                        width="28"
+                        height="28"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="rgba(251, 191, 36, 0.5)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        {/* Thought stream / brain wave icon */}
+                        <path d="M2 12h4l3-9 4 18 3-9h4" opacity="0.7" />
+                        <circle cx="12" cy="12" r="2" fill="rgba(251, 191, 36, 0.3)" />
+                    </svg>
+                </div>
+                {/* Center glow */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: 'rgba(251, 191, 36, 0.4)',
+                        boxShadow: '0 0 20px rgba(251, 191, 36, 0.3)',
+                        animation: 'emptyGlowStream 2s ease-in-out infinite',
+                    }}
+                />
             </div>
-            <div style={{ textAlign: 'center' }}>
+
+            {/* Text content */}
+            <div>
                 <p style={{
                     fontFamily: 'Orbitron, sans-serif',
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 600,
                     letterSpacing: '0.15em',
-                    color: 'rgba(148, 163, 184, 0.7)',
-                    marginBottom: '4px',
+                    color: 'rgba(226, 232, 240, 0.7)',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
                 }}>
-                    NO ACTIVITY
+                    No Cognitive Events
                 </p>
                 <p style={{
                     fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: '10px',
-                    color: 'rgba(100, 116, 139, 0.5)',
+                    fontSize: '11px',
+                    color: 'rgba(100, 116, 139, 0.6)',
+                    letterSpacing: '0.02em',
                 }}>
-                    Awaiting cognitive events...
+                    Awaiting thought stream...
                 </p>
             </div>
+
+            <style>{`
+                @keyframes emptyPulseStream {
+                    0%, 100% { transform: scale(1); opacity: 0.4; }
+                    50% { transform: scale(1.1); opacity: 0.2; }
+                }
+                @keyframes emptyGlowStream {
+                    0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+                    50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); }
+                }
+            `}</style>
         </div>
     );
 }

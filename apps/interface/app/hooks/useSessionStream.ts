@@ -169,8 +169,8 @@ export function useSessionStream({ sessionId, onLineageUpdate, onReplayUpdate }:
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('[SessionStream] WebSocket error:', error);
+      ws.onerror = () => {
+        console.error('[SessionStream] WebSocket connection error');
         // Don't set error state here, let onclose handle reconnection
       };
 

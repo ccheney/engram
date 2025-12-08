@@ -416,29 +416,113 @@ function LoadingSkeleton() {
     );
 }
 
-// Empty state
+// Empty state - Monochrome + Amber aesthetic
 function EmptyState() {
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', textAlign: 'center', padding: '0 32px' }}>
-            <svg
-                style={{ width: '64px', height: '64px', color: 'rgb(100,116,139)', opacity: 0.5, flexShrink: 0 }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            gap: '20px',
+            textAlign: 'center',
+            padding: '40px',
+        }}>
+            {/* Animated neural icon */}
+            <div style={{ position: 'relative', width: '64px', height: '64px' }}>
+                {/* Outer pulsing ring */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        inset: '-4px',
+                        borderRadius: '50%',
+                        border: '1px solid rgba(251, 191, 36, 0.2)',
+                        animation: 'emptyPulse 3s ease-in-out infinite',
+                    }}
                 />
-            </svg>
-            <div>
-                <div style={{ color: 'rgb(148,163,184)', marginBottom: '4px' }}>No neural pathways detected</div>
-                <div style={{ fontSize: '12px', color: 'rgb(100,116,139)' }}>
-                    Waiting for session activity...
+                {/* Main icon container */}
+                <div
+                    style={{
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(148, 163, 184, 0.04) 100%)',
+                        border: '1px solid rgba(148, 163, 184, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.03)',
+                    }}
+                >
+                    <svg
+                        width="28"
+                        height="28"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="rgba(251, 191, 36, 0.5)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        {/* Neural network / graph icon */}
+                        <circle cx="12" cy="5" r="2" />
+                        <circle cx="5" cy="12" r="2" />
+                        <circle cx="19" cy="12" r="2" />
+                        <circle cx="12" cy="19" r="2" />
+                        <path d="M12 7v10M7 12h10M9 7l-2 3M15 7l2 3M9 17l-2-3M15 17l2-3" opacity="0.5" />
+                    </svg>
                 </div>
+                {/* Center glow */}
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: 'rgba(251, 191, 36, 0.4)',
+                        boxShadow: '0 0 20px rgba(251, 191, 36, 0.3)',
+                        animation: 'emptyGlow 2s ease-in-out infinite',
+                    }}
+                />
             </div>
+
+            {/* Text content */}
+            <div>
+                <p style={{
+                    fontFamily: 'Orbitron, sans-serif',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    letterSpacing: '0.15em',
+                    color: 'rgba(226, 232, 240, 0.7)',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                }}>
+                    No Neural Pathways
+                </p>
+                <p style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '11px',
+                    color: 'rgba(100, 116, 139, 0.6)',
+                    letterSpacing: '0.02em',
+                }}>
+                    Awaiting session activity...
+                </p>
+            </div>
+
+            <style>{`
+                @keyframes emptyPulse {
+                    0%, 100% { transform: scale(1); opacity: 0.4; }
+                    50% { transform: scale(1.1); opacity: 0.2; }
+                }
+                @keyframes emptyGlow {
+                    0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+                    50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.2); }
+                }
+            `}</style>
         </div>
     );
 }
@@ -624,7 +708,7 @@ export function LineageGraph({ data, onNodeClick, highlightedNodeId, onNodeHover
 
     if (!data) {
         return (
-            <div className="w-full h-full">
+            <div style={{ width: '100%', height: '100%', minHeight: '400px' }}>
                 <LoadingSkeleton />
             </div>
         );
@@ -632,7 +716,7 @@ export function LineageGraph({ data, onNodeClick, highlightedNodeId, onNodeHover
 
     if (!data.nodes || data.nodes.length === 0) {
         return (
-            <div className="w-full h-full">
+            <div style={{ width: '100%', height: '100%', minHeight: '400px' }}>
                 <EmptyState />
             </div>
         );

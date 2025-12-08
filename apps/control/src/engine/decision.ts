@@ -1,5 +1,5 @@
 import { xai } from "@ai-sdk/xai";
-import { createNodeLogger } from "@the-soul/logger";
+import { createNodeLogger } from "@engram/logger";
 import { generateText } from "ai";
 import { createActor, fromPromise } from "xstate";
 import type { ContextAssembler } from "../context/assembler";

@@ -1,16 +1,18 @@
 {
-	"name": "@the-soul/execution-core",
+	"name": "@engram/execution-core",
 	"version": "0.0.0",
+	"type": "module",
 	"main": "./src/index.ts",
 	"types": "./src/index.ts",
 	"devDependencies": {
 		"typescript": "^5.9.3",
 		"@types/node": "^24.10.1",
-		"@the-soul/tsconfig": "workspace:*"
+		"@engram/tsconfig": "workspace:*"
 	},
 	"dependencies": {
 		"zod": "^3.25.76",
-		"@the-soul/storage": "workspace:*"
+		"@engram/storage": "workspace:*",
+		"@engram/vfs": "workspace:*"
 	},
 	"scripts": {
 		"build": "echo 'Build success'",

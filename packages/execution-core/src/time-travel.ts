@@ -1,6 +1,6 @@
 import { promisify } from "node:util";
 import * as zlib from "node:zlib";
-import type { VirtualFileSystem } from "@the-soul/vfs";
+import type { VirtualFileSystem } from "@engram/vfs";
 import type { Rehydrator } from "./rehydrator";
 
 const gzip = promisify(zlib.gzip);

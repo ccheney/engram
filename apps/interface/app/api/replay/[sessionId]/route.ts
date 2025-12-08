@@ -1,5 +1,5 @@
 import { apiError, apiSuccess } from "@lib/api-response";
-import { createFalkorClient } from "@the-soul/storage";
+import { createFalkorClient } from "@engram/storage";
 import { z } from "zod";
 
 const falkor = createFalkorClient();

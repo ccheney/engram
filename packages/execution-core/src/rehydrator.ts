@@ -1,5 +1,5 @@
-import { createBlobStore, type FalkorClient } from "@the-soul/storage";
-import { PatchManager, VirtualFileSystem } from "@the-soul/vfs";
+import { createBlobStore, type FalkorClient } from "@engram/storage";
+import { PatchManager, VirtualFileSystem } from "@engram/vfs";
 
 export class Rehydrator {
 	private blobStore = createBlobStore();

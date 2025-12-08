@@ -103,9 +103,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
             >
                 <div
                     style={{
-                        maxWidth: '1400px',
-                        margin: '0 auto',
-                        padding: '16px 24px',
+                        padding: '16px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -161,7 +159,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
                                     color: 'rgb(251, 191, 36)',
                                 }}
                             >
-                                SOUL
+                                ENGRAM
                             </span>
                         </Link>
 

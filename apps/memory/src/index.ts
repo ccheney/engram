@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createNodeLogger, pino } from "@the-soul/logger";
-import { GraphPruner } from "@the-soul/memory-core";
-import { createFalkorClient } from "@the-soul/storage";
+import { createNodeLogger, pino } from "@engram/logger";
+import { GraphPruner } from "@engram/memory-core";
+import { createFalkorClient, createKafkaClient } from "@engram/storage";
 import { z } from "zod";
 
 // Initialize Logger (stderr for MCP safety)
@@ -11,12 +11,14 @@ const logger = createNodeLogger(
 		service: "memory-service",
 		level: "info",
 		base: { component: "server" },
+		pretty: false,
 	},
 	pino.destination(2),
 );
 
 // Initialize Services
 const falkor = createFalkorClient();
+const kafka = createKafkaClient("memory-service");
 const pruner = new GraphPruner(falkor);
 
 // Pruning Job
@@ -36,9 +38,92 @@ function startPruningJob() {
 	}, PRUNE_INTERVAL_MS);
 }
 
+// Kafka Consumer for Persistence
+async function startPersistenceConsumer() {
+	const consumer = await kafka.createConsumer("memory-group");
+	await consumer.subscribe({ topic: "parsed_events", fromBeginning: false });
+
+	await consumer.run({
+		eachMessage: async ({ message }) => {
+			try {
+				const value = message.value?.toString();
+				if (!value) return;
+				const event = JSON.parse(value);
+                
+                logger.info({ event_summary: { id: event.event_id, meta: event.metadata, orig: event.original_event_id } }, "Memory received event");
+
+				const sessionId = event.metadata?.session_id || event.original_event_id; // ingestion might need to pass session_id better
+
+				if (!sessionId) {
+					logger.warn("Event missing session_id, skipping persistence");
+					return;
+				}
+
+				// Persist to FalkorDB
+				await falkor.connect();
+
+				// 1. Ensure Session Exists and update lastEventAt
+				const now = Date.now();
+				await falkor.query(
+					`MERGE (s:Session {id: $sessionId})
+                     ON CREATE SET s.startedAt = $now, s.lastEventAt = $now
+                     ON MATCH SET s.lastEventAt = $now`,
+					{ sessionId, now },
+				);
+
+				// 2. Create Thought/Event Node
+				// Determine type and content
+				const type = event.type || "unknown";
+				const content = event.content || event.thought || "";
+				const role = event.role || "system";
+				const eventId = event.original_event_id || crypto.randomUUID();
+
+				// Create Node
+				// We use a simplified model where everything is a 'Thought' for now, distinguished by properties
+				// Ideally we should use labels like :Thought:UserMessage etc.
+				const query = `
+                    MATCH (s:Session {id: $sessionId})
+                    CREATE (t:Thought {
+                        id: $eventId,
+                        type: $type,
+                        role: $role,
+                        content: $content,
+                        vt_start: timestamp(),
+                        timestamp: $timestamp
+                    })
+                    MERGE (s)-[:TRIGGERS]->(t)
+                    // TODO: Link to previous thought for chain (NEXT)
+                    // For now, simple TRIGGERS from Session is enough to show in Replay if we sort by time
+                `;
+
+				await falkor.query(query, {
+					sessionId,
+					eventId,
+					type,
+					role,
+					content,
+					timestamp: event.timestamp || new Date().toISOString(),
+				});
+
+				logger.info({ eventId, sessionId }, "Persisted event to graph");
+
+				// Publish 'memory.node_created' for Search Service
+				await kafka.sendEvent("memory.node_created", eventId, {
+					id: eventId,
+					labels: ["Thought"],
+					properties: { content, role, type },
+				});
+			} catch (e) {
+				logger.error({ err: e }, "Persistence error");
+			}
+		},
+	});
+	logger.info("Memory Persistence Consumer started");
+}
+
 // Initialize MCP Server
 const server = new McpServer({
-	name: "soul-memory",
+	name: "engram-memory",
 	version: "1.0.0",
 });
 
@@ -109,9 +194,12 @@ export { server };
 async function main() {
 	await falkor.connect();
 	startPruningJob();
+	startPersistenceConsumer().catch((err) => {
+		logger.error({ err }, "Failed to start persistence consumer");
+	});
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
-	logger.info("Soul Memory MCP Server running on stdio");
+	logger.info("Engram Memory MCP Server running on stdio");
 }
 
 if (import.meta.main) {

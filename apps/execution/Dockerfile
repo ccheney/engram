@@ -7,11 +7,11 @@ RUN bun run build --filter=execution-service...
 FROM oven/bun:1-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN addgroup -S soul && adduser -S soul -G soul
+RUN addgroup -S engram && adduser -S engram -G engram
 
 COPY --from=builder /app/apps/execution/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
-USER soul
+USER engram
 EXPOSE 8080
 CMD ["bun", "run", "dist/index.js"]

@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { FalkorClient } from "@the-soul/storage";
+import type { FalkorClient } from "@engram/storage";
 import { GraphMerger } from "./merger";
 
 describe("GraphMerger", () => {

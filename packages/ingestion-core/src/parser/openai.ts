@@ -23,30 +23,36 @@ export class OpenAIParser implements ParserStrategy {
 		const delta = choice.delta as Record<string, unknown> | undefined;
 		if (!delta) return null;
 
+		const result: StreamDelta = {};
+
+		if (delta.role) {
+			result.role = delta.role as string;
+		}
+
 		// Content
 		if (delta.content) {
-			return { content: delta.content as string };
+			result.type = "content";
+			result.content = delta.content as string;
 		}
 
 		// Tool Calls
 		const toolCalls = delta.tool_calls as Array<Record<string, unknown>> | undefined;
 		if (toolCalls && toolCalls.length > 0) {
+			result.type = "tool_call";
 			const toolCall = toolCalls[0];
 			const functionCall = toolCall.function as Record<string, unknown> | undefined;
-			return {
-				toolCall: {
-					index: toolCall.index as number,
-					id: toolCall.id as string, // Only present in first chunk usually
-					name: functionCall?.name as string, // Only present in first chunk usually
-					args: functionCall?.arguments as string, // Partial JSON
-				},
+			result.toolCall = {
+				index: toolCall.index as number,
+				id: toolCall.id as string, // Only present in first chunk usually
+				name: functionCall?.name as string, // Only present in first chunk usually
+				args: functionCall?.arguments as string, // Partial JSON
 			};
 		}
 
 		if (choice.finish_reason) {
-			return { stopReason: choice.finish_reason as string };
+			result.stopReason = choice.finish_reason as string;
 		}
 
-		return null;
+		return Object.keys(result).length > 0 ? result : null;
 	}
 }

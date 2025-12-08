@@ -1,8 +1,8 @@
 import { describe, expect, it, mock } from "bun:test";
 
-// Mock @the-soul/storage before importing the unit under test
+// Mock @engram/storage before importing the unit under test
 const mockBlobStoreRead = mock(async () => "{}");
-mock.module("@the-soul/storage", () => ({
+mock.module("@engram/storage", () => ({
 	createBlobStore: () => ({
 		read: mockBlobStoreRead,
 		write: mock(async () => {}),
@@ -10,7 +10,7 @@ mock.module("@the-soul/storage", () => ({
 }));
 
 import { Rehydrator } from "./rehydrator";
-import type { FalkorClient } from "@the-soul/storage";
+import type { FalkorClient } from "@engram/storage";
 
 describe("Rehydrator", () => {
 	const mockFalkorQuery = mock(async () => []);

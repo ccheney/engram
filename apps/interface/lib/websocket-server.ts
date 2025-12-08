@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import { createFalkorClient } from '@the-soul/storage';
+import { createFalkorClient } from '@engram/storage';
 
 const falkor = createFalkorClient();
 
@@ -49,17 +49,18 @@ export function handleSessionConnection(ws: WebSocket, sessionId: string) {
             
             // biome-ignore lint/suspicious/noExplicitAny: FalkorDB response
             const lineageRes: any = await falkor.query(lineageQuery, { sessionId });
-            const currentNodeCount = Number(lineageRes?.[0]?.[0] || 0);
+            const currentNodeCount = Number(lineageRes?.[0]?.nodeCount || 0);
+            console.log(`[WS Poll] Session ${sessionId}: Node count ${currentNodeCount} (Last: ${lastNodeCount})`);
 
             // 2. Fetch Replay/Timeline count
             const replayQuery = `
-                MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(first:Thought)
-                MATCH p = (first)-[:NEXT*0..100]->(t:Thought)
+                MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(t:Thought)
                 RETURN count(t) as eventCount
             `;
              // biome-ignore lint/suspicious/noExplicitAny: FalkorDB response
             const replayRes: any = await falkor.query(replayQuery, { sessionId });
-            const currentEventCount = Number(replayRes?.[0]?.[0] || 0);
+            const currentEventCount = Number(replayRes?.[0]?.eventCount || 0);
+            console.log(`[WS Poll] Session ${sessionId}: Event count ${currentEventCount} (Last: ${lastEventCount})`);
 
             // If changed, fetch full data and push
             // Note: This is inefficient for large graphs, but fine for prototype/small sessions.
@@ -68,13 +69,17 @@ export function handleSessionConnection(ws: WebSocket, sessionId: string) {
                  // We can reuse the logic or just signal client to refetch?
                  // The useSessionStream hook expects data in the message.
                  // Let's fetch full data.
+                 console.log(`[WS Poll] Fetching full lineage for ${sessionId}`);
                  const fullLineageData = await getFullLineage(sessionId);
+                 console.log(`[WS Poll] Sending lineage data: ${fullLineageData.nodes.length} nodes, ${fullLineageData.links.length} links`);
                  ws.send(JSON.stringify({ type: 'lineage', data: fullLineageData }));
                  lastNodeCount = currentNodeCount;
             }
 
             if (currentEventCount !== lastEventCount) {
+                console.log(`[WS Poll] Fetching full timeline for ${sessionId}`);
                 const fullReplayData = await getFullTimeline(sessionId);
+                console.log(`[WS Poll] Sending replay data: ${fullReplayData.timeline.length} items`);
                 ws.send(JSON.stringify({ type: 'replay', data: fullReplayData }));
                 lastEventCount = currentEventCount;
             }
@@ -120,55 +125,77 @@ async function getFullLineage(sessionId: string) {
     // biome-ignore lint/suspicious/noExplicitAny: FalkorDB response
     const res: any = await falkor.query(query, { sessionId });
     
-    const nodesMap = new Map<string, unknown>();
-    const links: unknown[] = [];
+    // FalkorDB TS returns an array of objects where keys match RETURN alias
+    // [{ s: Node, path_nodes: Node[], path_edges: Edge[] }, ...]
+
+    const internalIdToUuid = new Map<number, string>();
+    const nodes: any[] = [];
+    const links: any[] = [];
 
     if (res && Array.isArray(res)) {
         for (const row of res) {
-            const sessionNode = row[0];
-            if (sessionNode?.id) {
-                nodesMap.set(sessionNode.id, {
-                    ...sessionNode.properties,
-                    id: sessionNode.id,
-                    label: "Session",
-                    type: "session"
-                });
-            }
-            const pathNodes = row[1];
-            if (Array.isArray(pathNodes)) {
-                for (const n of pathNodes) {
-                    if (n?.id) {
-                        const label = n.labels?.[0] || "Unknown";
-                        // map label to type roughly
-                        const type = label.toLowerCase();
-                        nodesMap.set(n.id, { ...n.properties, id: n.id, label, type });
-                    }
-                }
-            }
-            const pathEdges = row[2];
+             const sessionNode = row.s;
+             if (sessionNode) {
+                 const uuid = sessionNode.properties?.id;
+                 if (uuid) {
+                     internalIdToUuid.set(sessionNode.id, uuid);
+                     if (!nodes.find(n => n.id === uuid)) {
+                         nodes.push({ ...sessionNode.properties, id: uuid, label: "Session", type: "session" });
+                     }
+                 }
+             }
+             
+             const pathNodes = row.path_nodes;
+             if (Array.isArray(pathNodes)) {
+                 for (const n of pathNodes) {
+                     if (n) {
+                         const uuid = n.properties?.id;
+                         if (uuid) {
+                             internalIdToUuid.set(n.id, uuid);
+                             if (!nodes.find(x => x.id === uuid)) {
+                                 const label = n.labels?.[0] || "Unknown";
+                                 nodes.push({ ...n.properties, id: uuid, label, type: label.toLowerCase() });
+                             }
+                         }
+                     }
+                 }
+             }
+        }
+        
+        // Now process edges
+        for (const row of res) {
+            const pathEdges = row.path_edges;
             if (Array.isArray(pathEdges)) {
                 for (const e of pathEdges) {
-                    links.push({
-                        source: e.srcNodeId || e.start,
-                        target: e.destNodeId || e.end,
-                        type: e.type || e.relation,
-                        properties: e.properties,
-                    });
+                    if (e) {
+                        const sourceUuid = internalIdToUuid.get(e.sourceId || e.srcNodeId);
+                        const targetUuid = internalIdToUuid.get(e.destinationId || e.destNodeId);
+                        // Fallback for different library versions property names if needed
+                        // But test script showed sourceId/destinationId
+                        
+                        if (sourceUuid && targetUuid) {
+                            links.push({
+                                source: sourceUuid,
+                                target: targetUuid,
+                                type: e.relationshipType || e.relation,
+                                properties: e.properties
+                            });
+                        }
+                    }
                 }
             }
         }
     }
 
     return {
-        nodes: Array.from(nodesMap.values()),
+        nodes,
         links
     };
 }
 
 async function getFullTimeline(sessionId: string) {
     const cypher = `
-        MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(first:Thought)
-        MATCH p = (first)-[:NEXT*0..100]->(t:Thought)
+        MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(t:Thought)
         RETURN t
         ORDER BY t.vt_start ASC
     `;
@@ -177,9 +204,9 @@ async function getFullTimeline(sessionId: string) {
     const timeline = [];
     if (Array.isArray(result)) {
         for (const row of result) {
-            const node = row[0];
+            const node = row.t;
             if (node && node.properties) {
-                timeline.push({ ...node.properties, id: node.properties.id || node.id, type: 'thought' });
+                timeline.push({ ...node.properties, id: node.properties.id, type: 'thought' });
             }
         }
     }

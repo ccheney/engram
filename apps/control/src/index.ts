@@ -1,5 +1,5 @@
-import { createNodeLogger } from "@the-soul/logger";
-import { createFalkorClient, createKafkaClient } from "@the-soul/storage";
+import { createNodeLogger } from "@engram/logger";
+import { createFalkorClient, createKafkaClient } from "@engram/storage";
 import { ContextAssembler } from "./context/assembler";
 import { SessionManager } from "./session/manager";
 import { McpToolAdapter, MultiMcpAdapter } from "./tools/mcp_client";
@@ -27,7 +27,7 @@ multiAdapter.addAdapter(executionAdapter);
 // Initialize Core Logic
 // TODO: Replace with real SearchRetriever when available or mocked properly
 const contextAssembler = new ContextAssembler(
-	{} as unknown as import("@the-soul/search-core").SearchRetriever,
+	{} as unknown as import("@engram/search-core").SearchRetriever,
 	falkor,
 );
 

@@ -1,4 +1,4 @@
-import type { FalkorClient } from "@the-soul/storage";
+import type { FalkorClient } from "@engram/storage";
 import type { BaseNode } from "./models/base";
 import { createBitemporal, MAX_DATE, now } from "./utils/time";
 

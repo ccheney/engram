@@ -1,4 +1,4 @@
-import { createFalkorClient } from "@the-soul/storage";
+import { createFalkorClient } from "@engram/storage";
 
 const falkor = createFalkorClient();
 

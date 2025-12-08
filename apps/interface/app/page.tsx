@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { SessionBrowser } from "./components/SessionBrowser";
 
 // Dynamically import Three.js background to avoid SSR issues
 const NeuralBackground = dynamic(
@@ -72,8 +73,8 @@ function NeuralDecoration() {
         >
             <defs>
                 <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="rgb(0, 245, 212)" stopOpacity="0.6" />
-                    <stop offset="100%" stopColor="rgb(139, 92, 246)" stopOpacity="0.6" />
+                    <stop offset="0%" stopColor="rgb(251, 191, 36)" stopOpacity="0.6" />
+                    <stop offset="100%" stopColor="rgb(226, 232, 240)" stopOpacity="0.4" />
                 </linearGradient>
                 <filter id="glow">
                     <feGaussianBlur stdDeviation="2" result="coloredBlur" />
@@ -94,7 +95,7 @@ function NeuralDecoration() {
             </g>
 
             {/* Neural nodes */}
-            <g fill="rgb(0, 245, 212)" filter="url(#glow)">
+            <g fill="rgb(251, 191, 36)" filter="url(#glow)">
                 <circle cx="100" cy="100" r="4" className="animate-pulse" />
                 <circle cx="300" cy="150" r="5" style={{ animationDelay: '0.2s' }} className="animate-pulse" />
                 <circle cx="500" cy="100" r="4" style={{ animationDelay: '0.4s' }} className="animate-pulse" />
@@ -132,8 +133,10 @@ export default function HomePage() {
                 minHeight: '100vh',
                 overflow: 'hidden',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center'
+                paddingTop: '3rem',
+                paddingBottom: '3rem',
             }}
         >
             {/* Background decorations - absolute positioned */}
@@ -144,18 +147,21 @@ export default function HomePage() {
                 <Particles />
             </div>
 
-            {/* Centered content container */}
+            {/* Full-width content container */}
             <div
-                className="relative z-10 px-4 py-12"
+                className="relative z-10"
                 style={{
                     position: 'relative',
-                    zIndex: 10
+                    zIndex: 10,
+                    width: '100%',
+                    maxWidth: '1600px',
+                    padding: '0 2rem',
                 }}
             >
                 <div
                     className={`w-full transition-all duration-1000 ${mounted ? 'opacity-100' : 'opacity-0'}`}
                     style={{
-                        maxWidth: '32rem',
+                        width: '100%',
                         transform: mounted ? 'translateY(0)' : 'translateY(2rem)'
                     }}
                 >
@@ -180,7 +186,7 @@ export default function HomePage() {
                                     width: '120px',
                                     height: '120px',
                                     borderRadius: '50%',
-                                    border: '1px solid rgba(0,245,212,0.2)',
+                                    border: '1px solid rgba(251,191,36,0.2)',
                                     animation: 'spin 30s linear infinite reverse',
                                 }}
                             />
@@ -191,7 +197,7 @@ export default function HomePage() {
                                     width: '90px',
                                     height: '90px',
                                     borderRadius: '50%',
-                                    border: '1px solid rgba(139,92,246,0.3)',
+                                    border: '1px solid rgba(148,163,184,0.3)',
                                     animation: 'spin 20s linear infinite',
                                 }}
                             />
@@ -202,9 +208,9 @@ export default function HomePage() {
                                     width: '60px',
                                     height: '60px',
                                     borderRadius: '50%',
-                                    border: '1px solid rgba(0,245,212,0.5)',
-                                    background: 'radial-gradient(circle at 30% 30%, rgba(0,245,212,0.2), transparent 60%)',
-                                    boxShadow: '0 0 20px rgba(0,245,212,0.2), inset 0 0 20px rgba(0,245,212,0.1)',
+                                    border: '1px solid rgba(251,191,36,0.5)',
+                                    background: 'radial-gradient(circle at 30% 30%, rgba(251,191,36,0.2), transparent 60%)',
+                                    boxShadow: '0 0 20px rgba(251,191,36,0.2), inset 0 0 20px rgba(251,191,36,0.1)',
                                 }}
                             />
                             {/* Core glow */}
@@ -214,8 +220,8 @@ export default function HomePage() {
                                     width: '24px',
                                     height: '24px',
                                     borderRadius: '50%',
-                                    background: 'radial-gradient(circle, rgba(0,245,212,1), rgba(0,245,212,0.5) 40%, transparent 70%)',
-                                    boxShadow: '0 0 30px rgba(0,245,212,0.8), 0 0 60px rgba(0,245,212,0.4)',
+                                    background: 'radial-gradient(circle, rgba(251,191,36,1), rgba(251,191,36,0.5) 40%, transparent 70%)',
+                                    boxShadow: '0 0 30px rgba(251,191,36,0.8), 0 0 60px rgba(251,191,36,0.4)',
                                 }}
                             />
                         </div>
@@ -229,130 +235,71 @@ export default function HomePage() {
                                 marginBottom: '1rem'
                             }}
                         >
-                            SOUL SYSTEM
+                            ENGRAM
                         </h1>
                         <p style={{ color: 'rgb(148,163,184)', fontSize: '0.875rem', letterSpacing: '0.3em', textTransform: 'uppercase' }}>
                             Neural Observatory
                         </p>
                     </div>
 
-                    {/* Session input card */}
-                    <div
-                        style={{
-                            background: 'rgba(15, 20, 30, 0.8)',
-                            backdropFilter: 'blur(20px)',
-                            border: '1px solid rgba(0, 245, 212, 0.15)',
-                            borderRadius: '16px',
-                            padding: '2rem',
-                        }}
-                    >
-                        <form onSubmit={handleSubmit}>
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <label
-                                    htmlFor="sessionId"
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        fontSize: '12px',
-                                        fontWeight: 500,
-                                        color: 'rgb(148, 163, 184)',
-                                        letterSpacing: '0.1em',
-                                        marginBottom: '12px',
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            width: '8px',
-                                            height: '8px',
-                                            borderRadius: '50%',
-                                            backgroundColor: 'rgb(0, 245, 212)',
-                                            boxShadow: '0 0 10px rgba(0, 245, 212, 0.6)',
-                                            animation: 'pulse 2s ease-in-out infinite',
-                                        }}
-                                    />
-                                    SESSION IDENTIFIER
-                                </label>
-                                <input
-                                    id="sessionId"
-                                    type="text"
-                                    value={sessionId}
-                                    onChange={(e) => setSessionId(e.target.value)}
-                                    onFocus={() => setIsFocused(true)}
-                                    onBlur={() => setIsFocused(false)}
-                                    placeholder="Enter session UUID..."
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    style={{
-                                        width: '100%',
-                                        padding: '16px 20px',
-                                        fontSize: '14px',
-                                        fontFamily: 'JetBrains Mono, monospace',
-                                        color: 'rgb(240, 245, 255)',
-                                        backgroundColor: 'rgba(22, 30, 45, 0.8)',
-                                        border: isFocused
-                                            ? '1px solid rgba(0, 245, 212, 0.5)'
-                                            : '1px solid rgba(0, 245, 212, 0.2)',
-                                        borderRadius: '12px',
-                                        outline: 'none',
-                                        transition: 'all 0.3s ease',
-                                        boxShadow: isFocused
-                                            ? '0 0 20px rgba(0, 245, 212, 0.15), inset 0 0 10px rgba(0, 245, 212, 0.05)'
-                                            : 'none',
-                                    }}
-                                />
-                            </div>
-
+                    {/* UUID input - at top */}
+                    <form onSubmit={handleSubmit} style={{ maxWidth: '480px', margin: '0 auto 2rem auto' }}>
+                        <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                        }}>
+                            <input
+                                id="sessionId"
+                                type="text"
+                                value={sessionId}
+                                onChange={(e) => setSessionId(e.target.value)}
+                                onFocus={() => setIsFocused(true)}
+                                onBlur={() => setIsFocused(false)}
+                                placeholder="Enter session UUID..."
+                                autoComplete="off"
+                                spellCheck={false}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px 16px',
+                                    fontSize: '13px',
+                                    fontFamily: 'JetBrains Mono, monospace',
+                                    color: 'rgb(203, 213, 225)',
+                                    backgroundColor: 'rgba(15, 20, 30, 0.7)',
+                                    border: isFocused
+                                        ? '1px solid rgba(251, 191, 36, 0.4)'
+                                        : '1px solid rgba(100, 116, 139, 0.25)',
+                                    borderRadius: '8px',
+                                    outline: 'none',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: isFocused ? '0 0 12px rgba(251, 191, 36, 0.15)' : 'none',
+                                }}
+                            />
                             <button
                                 type="submit"
                                 disabled={!sessionId}
                                 style={{
-                                    width: '100%',
-                                    padding: '16px 24px',
-                                    fontSize: '13px',
-                                    fontFamily: 'Orbitron, sans-serif',
+                                    padding: '12px 20px',
+                                    fontSize: '11px',
+                                    fontFamily: 'JetBrains Mono, monospace',
                                     fontWeight: 600,
-                                    letterSpacing: '0.1em',
-                                    textTransform: 'uppercase',
-                                    color: sessionId ? 'rgb(0, 245, 212)' : 'rgb(100, 116, 139)',
-                                    background: sessionId
-                                        ? 'linear-gradient(135deg, rgba(0, 245, 212, 0.15), rgba(139, 92, 246, 0.15))'
-                                        : 'rgba(22, 30, 45, 0.5)',
+                                    letterSpacing: '0.05em',
+                                    color: sessionId ? 'rgb(251, 191, 36)' : 'rgb(71, 85, 105)',
+                                    backgroundColor: sessionId ? 'rgba(251, 191, 36, 0.1)' : 'rgba(15, 20, 30, 0.6)',
                                     border: sessionId
-                                        ? '1px solid rgba(0, 245, 212, 0.4)'
-                                        : '1px solid rgba(100, 116, 139, 0.2)',
-                                    borderRadius: '12px',
+                                        ? '1px solid rgba(251, 191, 36, 0.4)'
+                                        : '1px solid rgba(100, 116, 139, 0.15)',
+                                    borderRadius: '8px',
                                     cursor: sessionId ? 'pointer' : 'not-allowed',
-                                    transition: 'all 0.3s ease',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '12px',
+                                    transition: 'all 0.2s ease',
                                 }}
                             >
-                                <svg
-                                    style={{ width: '18px', height: '18px', flexShrink: 0 }}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                    />
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                    />
-                                </svg>
-                                Observe Session
+                                GO
                             </button>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
+
+                    {/* Session Browser */}
+                    <SessionBrowser />
 
                     {/* Decorative status line */}
                     <div

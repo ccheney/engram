@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { createKafkaClient } from "@the-soul/storage";
-import { RawStreamEventSchema } from "@the-soul/events";
+import { createKafkaClient } from "@engram/storage";
+import { RawStreamEventSchema } from "@engram/events";
 
 const kafka = createKafkaClient("e2e-test");
 

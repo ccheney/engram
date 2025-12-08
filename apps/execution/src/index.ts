@@ -1,12 +1,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { Rehydrator, TimeTravelService } from "@the-soul/execution-core";
-import { createNodeLogger } from "@the-soul/logger";
-import { createFalkorClient } from "@the-soul/storage";
-import { PatchManager, VirtualFileSystem } from "@the-soul/vfs";
+import { Rehydrator, TimeTravelService } from "@engram/execution-core";
+import { createNodeLogger } from "@engram/logger";
+import { createFalkorClient } from "@engram/storage";
+import { PatchManager, VirtualFileSystem } from "@engram/vfs";
 import { z } from "zod";
 
-const logger = createNodeLogger({ service: "execution-service", base: { component: "main" } });
+const logger = createNodeLogger({
+	service: "execution-service",
+	base: { component: "main" },
+	pretty: false,
+});
 
 // Initialize Core Services
 const vfs = new VirtualFileSystem();
@@ -16,7 +20,7 @@ const rehydrator = new Rehydrator(falkor);
 const timeTravel = new TimeTravelService(rehydrator);
 
 const server = new McpServer({
-	name: "soul-execution",
+	name: "engram-execution",
 	version: "1.0.0",
 });
 
@@ -115,7 +119,7 @@ export { server, vfs, patchManager };
 async function main() {
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
-	logger.error("Soul Execution MCP Server running on stdio");
+	logger.info("Engram Execution MCP Server running on stdio");
 }
 
 if (import.meta.main) {

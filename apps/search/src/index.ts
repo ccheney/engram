@@ -1,8 +1,6 @@
-import { SchemaManager, SearchIndexer, SearchRetriever } from "@the-soul/search-core";
-import { createKafkaClient } from "@the-soul/storage";
-
-import { SchemaManager, SearchIndexer, SearchRetriever } from "@the-soul/search-core";
-import { createKafkaClient } from "@the-soul/storage";
+import { createServer } from "http";
+import { SchemaManager, SearchIndexer, SearchRetriever } from "@engram/search-core";
+import { createKafkaClient } from "@engram/storage";
 
 export class SearchService {
 	constructor(
@@ -45,7 +43,7 @@ export class SearchService {
 		});
 	}
 
-	async handleRequest(req: Request) {
+	async handleRequest(req: Request): Promise<Response> {
 		const url = new URL(req.url);
 		if (url.pathname === "/health") return new Response("OK");
 
@@ -65,19 +63,52 @@ export class SearchService {
 	}
 }
 
-if (import.meta.main) {
-	const schemaManager = new SchemaManager();
-	const indexer = new SearchIndexer();
-	const retriever = new SearchRetriever();
-	const kafka = createKafkaClient("search-service");
+// Main execution
+const PORT = 31416;
 
-	const service = new SearchService(retriever, indexer, schemaManager, kafka);
-	await service.initialize();
+const schemaManager = new SchemaManager();
+const indexer = new SearchIndexer();
+const retriever = new SearchRetriever();
+const kafka = createKafkaClient("search-service");
 
-	const server = Bun.serve({
-		port: 8080,
-		fetch: service.handleRequest.bind(service),
-	});
+const service = new SearchService(retriever, indexer, schemaManager, kafka);
+await service.initialize();
 
-	console.log(`Search Service running on port ${server.port}`);
-}
+const server = createServer(async (req, res) => {
+	const url = new URL(req.url || "", `http://localhost:${PORT}`);
+
+	if (url.pathname === "/health") {
+		res.writeHead(200);
+		res.end("OK");
+		return;
+	}
+
+	if (url.pathname === "/search" && req.method === "POST") {
+		let body = "";
+
+		req.on("data", (chunk) => {
+			body += chunk.toString();
+		});
+
+		req.on("end", async () => {
+			try {
+				const parsed = JSON.parse(body);
+				const results = await service.retriever.search(parsed);
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify(results));
+			} catch (e: unknown) {
+				const message = e instanceof Error ? e.message : String(e);
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: message }));
+			}
+		});
+		return;
+	}
+
+	res.writeHead(404);
+	res.end("Not Found");
+});
+
+server.listen(PORT, () => {
+	console.log(`Search Service running on port ${PORT}`);
+});

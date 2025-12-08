@@ -1,10 +1,10 @@
 {
-	"extends": "@the-soul/tsconfig/base.json",
+	"extends": "@engram/tsconfig/base.json",
 	"compilerOptions": {
 		"rootDir": ".",
 		"outDir": "dist",
 		"baseUrl": ".",
-		"types": ["bun-types"]
+		"types": ["node"]
 	},
 	"include": ["src/**/*"],
 	"exclude": ["node_modules", "dist"]

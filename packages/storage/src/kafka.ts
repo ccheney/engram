@@ -1,35 +1,95 @@
-import { type Consumer, Kafka, type Producer } from "kafkajs";
+// @ts-ignore - @confluentinc/kafka-javascript doesn't have proper TypeScript definitions
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const { Kafka } = require("@confluentinc/kafka-javascript").KafkaJS;
+
+// Define types for the Kafka consumer/producer since the library lacks proper TS types
+type KafkaMessage = {
+	key?: Buffer;
+	value: Buffer;
+	offset: string;
+	timestamp?: string;
+};
+
+// Internal consumer type from the library
+type InternalConsumer = {
+	connect(): Promise<void>;
+	disconnect(): Promise<void>;
+	subscribe(opts: { topics: string[] }): Promise<void>;
+	run(opts: {
+		eachMessage: (payload: {
+			topic: string;
+			partition: number;
+			message: KafkaMessage;
+		}) => Promise<void>;
+	}): void;
+};
+
+// Public consumer type with KafkaJS-compatible API
+export type Consumer = {
+	connect(): Promise<void>;
+	disconnect(): Promise<void>;
+	subscribe(opts: { topic: string; fromBeginning?: boolean }): Promise<void>;
+	run(opts: {
+		eachMessage: (payload: {
+			topic: string;
+			partition: number;
+			message: KafkaMessage;
+		}) => Promise<void>;
+	}): void;
+};
+
+export type Producer = {
+	connect(): Promise<void>;
+	disconnect(): Promise<void>;
+	send(opts: { topic: string; messages: Array<{ key: string; value: string }> }): Promise<void>;
+};
 
 export class KafkaClient {
-	private kafka: Kafka;
+	private kafka: unknown;
 	private producer: Producer | null = null;
+	private brokers: string;
 
-	constructor(brokers: string[] = ["localhost:9092"], clientId: string = "soul-client") {
-		this.kafka = new Kafka({
-			clientId,
-			brokers,
-			retry: {
-				initialRetryTime: 100,
-				retries: 8,
-			},
-		});
+	constructor(brokers: string[] = ["localhost:19092"], clientId: string = "soul-client") {
+		this.brokers = brokers.join(",");
+		this.kafka = new Kafka({});
 	}
 
 	public async getProducer(): Promise<Producer> {
 		if (!this.producer) {
+			// @ts-ignore - accessing kafka instance
 			this.producer = this.kafka.producer({
-				idempotent: true,
-				allowAutoTopicCreation: true,
-			});
+				"bootstrap.servers": this.brokers,
+				"client.id": "engram-producer",
+				"allow.auto.create.topics": true,
+			}) as Producer;
 			await this.producer.connect();
 		}
 		return this.producer;
 	}
 
 	public async createConsumer(groupId: string): Promise<Consumer> {
-		const consumer = this.kafka.consumer({ groupId });
-		await consumer.connect();
-		return consumer;
+		// @ts-ignore - accessing kafka instance
+		const internalConsumer = this.kafka.consumer({
+			"bootstrap.servers": this.brokers,
+			"group.id": groupId,
+			"auto.offset.reset": "earliest",
+			"enable.auto.commit": true,
+			"session.timeout.ms": 120000, // 2 minutes
+			"max.poll.interval.ms": 180000, // 3 minutes
+		}) as InternalConsumer;
+		await internalConsumer.connect();
+
+		// Wrap to provide KafkaJS-compatible API
+		const wrappedConsumer: Consumer = {
+			connect: () => internalConsumer.connect(),
+			disconnect: () => internalConsumer.disconnect(),
+			subscribe: (opts: { topic: string; fromBeginning?: boolean }) =>
+				internalConsumer.subscribe({ topics: [opts.topic] }),
+			run: (opts) => internalConsumer.run(opts),
+		};
+
+		return wrappedConsumer;
 	}
 
 	/**
@@ -57,6 +117,7 @@ export class KafkaClient {
 }
 
 export const createKafkaClient = (clientId: string) => {
-	const brokers = (process.env.REDPANDA_BROKERS || "localhost:9092").split(",");
+	// Use port 19092 for local dev - this is the external listener that advertises localhost:19092
+	const brokers = (process.env.REDPANDA_BROKERS || "localhost:19092").split(",");
 	return new KafkaClient(brokers, clientId);
 };

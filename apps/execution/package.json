@@ -1,19 +1,21 @@
 {
 	"name": "execution-service",
 	"version": "0.0.0",
+	"type": "module",
 	"dependencies": {
-		"@the-soul/execution-core": "workspace:*",
-		"@the-soul/logger": "workspace:*",
-		"@the-soul/storage": "workspace:*",
-		"@the-soul/vfs": "workspace:*",
+		"@engram/execution-core": "workspace:*",
+		"@engram/logger": "workspace:*",
+		"@engram/storage": "workspace:*",
+		"@engram/vfs": "workspace:*",
 		"@modelcontextprotocol/sdk": "^1.24.3",
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
 		"@types/node": "^24.10.1",
-		"@the-soul/tsconfig": "workspace:*"
+		"@engram/tsconfig": "workspace:*"
 	},
 	"scripts": {
+		"dev": "tsx src/index.ts",
 		"build": "echo 'Build success'",
 		"typecheck": "tsc --noEmit"
 	}

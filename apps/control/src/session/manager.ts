@@ -1,5 +1,5 @@
-import { createNodeLogger } from "@the-soul/logger";
-import type { FalkorClient } from "@the-soul/storage";
+import { createNodeLogger } from "@engram/logger";
+import type { FalkorClient } from "@engram/storage";
 import type { ContextAssembler } from "../context/assembler";
 import { DecisionEngine } from "../engine/decision";
 import type { MultiMcpAdapter } from "../tools/mcp_client";

@@ -2,7 +2,7 @@ import { Mastra } from "@mastra/core";
 import { mainLoop } from "./workflows/main_loop";
 
 export const config = {
-	name: "soul-control",
+	name: "engram-control",
 	workflows: {
 		mainLoop,
 	},

@@ -1,4 +1,4 @@
-import { createNodeLogger } from "@the-soul/logger";
+import { createNodeLogger } from "@engram/logger";
 import type { NextResponse } from "next/server";
 
 const logger = createNodeLogger({

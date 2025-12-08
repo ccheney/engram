@@ -1,5 +1,5 @@
-import type { SearchRetriever } from "@the-soul/search-core";
-import type { FalkorClient } from "@the-soul/storage";
+import type { SearchRetriever } from "@engram/search-core";
+import type { FalkorClient } from "@engram/storage";
 
 export class ContextAssembler {
 	// biome-ignore lint/complexity/noUselessConstructor: Parameters are required for future implementation
@@ -13,6 +13,6 @@ export class ContextAssembler {
 		// 5. Prune to fit tokenLimit
 
 		// Stub implementation
-		return "System: You are The Soul.\nUser: Hello.";
+		return "System: You are Engram.\nUser: Hello.";
 	}
 }

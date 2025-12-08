@@ -1,4 +1,5 @@
-import { RawStreamEventSchema, type RawStreamEvent } from "@the-soul/events";
+import { createServer } from "http";
+import { RawStreamEventSchema, type RawStreamEvent } from "@engram/events";
 import {
 	AnthropicParser,
 	DiffExtractor,
@@ -6,13 +7,15 @@ import {
 	Redactor,
 	type StreamDelta,
 	ThinkingExtractor,
-} from "@the-soul/ingestion-core";
-import { createKafkaClient } from "@the-soul/storage";
+	XAIParser,
+} from "@engram/ingestion-core";
+import { createKafkaClient } from "@engram/storage";
 
 const kafka = createKafkaClient("ingestion-service");
 const redactor = new Redactor();
 const anthropicParser = new AnthropicParser();
 const openaiParser = new OpenAIParser();
+const xaiParser = new XAIParser();
 
 // In-memory state for extractors (per session)
 const thinkingExtractors = new Map<string, ThinkingExtractor>();
@@ -31,6 +34,8 @@ export class IngestionProcessor {
 			delta = anthropicParser.parse(rawEvent.payload);
 		} else if (provider === "openai") {
 			delta = openaiParser.parse(rawEvent.payload);
+		} else if (provider === "xai") {
+			delta = xaiParser.parse(rawEvent.payload);
 		}
 
 		if (!delta) {
@@ -74,8 +79,12 @@ export class IngestionProcessor {
 			...delta,
 			original_event_id: rawEvent.event_id,
 			timestamp: rawEvent.ingest_timestamp,
+			metadata: {
+				session_id: sessionId,
+			},
 		});
 
+		console.log(`[Ingest] Processed event ${rawEvent.event_id} for session ${sessionId}`);
 		return { status: "processed" };
 	}
 }
@@ -110,35 +119,43 @@ async function startConsumer() {
 // Start Consumer
 startConsumer().catch(console.error);
 
-// Simple Bun Server
-const server = Bun.serve({
-	port: 8080,
-	async fetch(req) {
-		const url = new URL(req.url);
+// Simple HTTP Server (Node.js compatible)
+const PORT = 31415;
 
-		if (url.pathname === "/health") return new Response("OK");
+const server = createServer(async (req, res) => {
+	const url = new URL(req.url || "", `http://localhost:${PORT}`);
 
-		if (url.pathname === "/ingest" && req.method === "POST") {
-			// Use unknown first to satisfy Biome
-			let rawBody: unknown;
+	if (url.pathname === "/health") {
+		res.writeHead(200);
+		res.end("OK");
+		return;
+	}
+
+	if (url.pathname === "/ingest" && req.method === "POST") {
+		let rawBody: unknown;
+		let body = "";
+
+		req.on("data", (chunk) => {
+			body += chunk.toString();
+		});
+
+		req.on("end", async () => {
 			try {
-				rawBody = await req.json();
+				rawBody = JSON.parse(body);
 				const rawEvent = RawStreamEventSchema.parse(rawBody);
 
 				await processEvent(rawEvent);
 
-				return new Response(JSON.stringify({ status: "processed" }), {
-					headers: { "Content-Type": "application/json" },
-				});
+				res.writeHead(200, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ status: "processed" }));
 			} catch (e: unknown) {
 				console.error("Ingestion Error:", e);
 				const message = e instanceof Error ? e.message : String(e);
 
 				// DLQ Logic
 				try {
-					// Check if rawBody has event_id safely
-					const body = rawBody as Record<string, unknown>;
-					const dlqKey = (body?.event_id as string) || "unknown";
+					const bodyObj = rawBody as Record<string, unknown>;
+					const dlqKey = (bodyObj?.event_id as string) || "unknown";
 
 					await kafka.sendEvent("ingestion.dead_letter", dlqKey, {
 						error: message,
@@ -149,12 +166,17 @@ const server = Bun.serve({
 					console.error("Failed to send to DLQ:", dlqError);
 				}
 
-				return new Response(JSON.stringify({ error: message }), { status: 400 });
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(JSON.stringify({ error: message }));
 			}
-		}
+		});
+		return;
+	}
 
-		return new Response("Not Found", { status: 404 });
-	},
+	res.writeHead(404);
+	res.end("Not Found");
 });
 
-console.log(`Ingestion Service running on port ${server.port}`);
+server.listen(PORT, () => {
+	console.log(`Ingestion Service running on port ${PORT}`);
+});

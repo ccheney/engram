@@ -34,7 +34,9 @@ app.prepare().then(() => {
 			}
 		}
 
-		socket.destroy();
+		// Do not destroy the socket here.
+		// Next.js (in dev mode) attaches its own upgrade listener for HMR (/_next/webpack-hmr).
+		// If we destroy it, HMR fails and causes page reloads.
 	});
 
 	server.listen(port, () => {

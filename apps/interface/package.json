@@ -1,16 +1,17 @@
 {
 	"name": "interface-service",
 	"version": "0.0.0",
+	"type": "module",
 	"dependencies": {
 		"@clerk/nextjs": "^6.36.0",
 		"@huggingface/transformers": "^3.8.1",
 		"@react-three/drei": "^10.7.7",
 		"@react-three/fiber": "^9.4.2",
-		"@the-soul/events": "workspace:*",
-		"@the-soul/logger": "workspace:*",
-		"@the-soul/memory-core": "workspace:*",
-		"@the-soul/search-core": "workspace:*",
-		"@the-soul/storage": "workspace:*",
+		"@engram/events": "workspace:*",
+		"@engram/logger": "workspace:*",
+		"@engram/memory-core": "workspace:*",
+		"@engram/search-core": "workspace:*",
+		"@engram/storage": "workspace:*",
 		"@types/three": "^0.181.0",
 		"@xyflow/react": "^12.10.0",
 		"dagre": "^0.8.5",
@@ -39,8 +40,8 @@
 		"typescript": "^5.9.3"
 	},
 	"scripts": {
-		"dev": "bun server.ts",
-		"start": "bun server.ts",
+		"dev": "tsx server.ts",
+		"start": "tsx server.ts",
 		"build": "next build",
 		"typecheck": "tsc --noEmit",
 		"generate-docs": "next-openapi-gen generate"

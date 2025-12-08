@@ -15,13 +15,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Create non-root user for security
-RUN addgroup -S soul && adduser -S soul -G soul
+RUN addgroup -S engram && adduser -S engram -G engram
 
 COPY --from=builder /app/apps/ingestion/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/ingestion/package.json ./
 
-USER soul
+USER engram
 EXPOSE 8080
 
 CMD ["bun", "run", "dist/index.js"]

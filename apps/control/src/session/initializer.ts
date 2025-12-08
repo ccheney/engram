@@ -1,5 +1,5 @@
-import { createNodeLogger } from "@the-soul/logger";
-import type { FalkorClient } from "@the-soul/storage";
+import { createNodeLogger } from "@engram/logger";
+import type { FalkorClient } from "@engram/storage";
 
 const logger = createNodeLogger({
 	service: "control-service",

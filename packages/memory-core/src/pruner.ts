@@ -1,4 +1,4 @@
-import type { FalkorClient } from "@the-soul/storage";
+import type { FalkorClient } from "@engram/storage";
 import { now } from "./utils/time";
 
 export class GraphPruner {

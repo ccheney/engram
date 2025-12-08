@@ -1,4 +1,4 @@
-import type { FalkorClient } from "@the-soul/storage";
+import type { FalkorClient } from "@engram/storage";
 
 export class GraphMerger {
 	constructor(private client: FalkorClient) {}

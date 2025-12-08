@@ -1,4 +1,6 @@
 export interface StreamDelta {
+	type?: "content" | "thought" | "tool_call" | "usage" | "stop";
+	role?: string;
 	content?: string;
 	thought?: string;
 	diff?: string; // Added diff field

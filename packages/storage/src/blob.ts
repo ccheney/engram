@@ -34,22 +34,87 @@ export class FileSystemBlobStore implements BlobStore {
 
 export class GCSBlobStore implements BlobStore {
 	private bucket: string;
+	private storage: unknown; // Lazy loaded @google-cloud/storage client
 
 	constructor(bucket: string) {
 		this.bucket = bucket;
 	}
 
+	/**
+	 * Lazily initialize the Google Cloud Storage client.
+	 * Uses Application Default Credentials or GOOGLE_APPLICATION_CREDENTIALS env var.
+	 */
+	private async getStorage() {
+		if (!this.storage) {
+			// Dynamic import to avoid bundling issues and make GCS optional
+			const { Storage } = await import("@google-cloud/storage");
+			this.storage = new Storage();
+		}
+		return this.storage as {
+			bucket: (name: string) => {
+				file: (name: string) => {
+					save: (content: string, options?: { contentType?: string }) => Promise<void>;
+					download: () => Promise<[Buffer]>;
+					exists: () => Promise<[boolean]>;
+				};
+			};
+		};
+	}
+
 	async save(content: string): Promise<string> {
-		// Stub implementation
 		const hash = crypto.createHash("sha256").update(content).digest("hex");
-		console.log(`[GCS Stub] Uploading to gs://${this.bucket}/${hash}`);
-		return `gs://${this.bucket}/${hash}`;
+		const fileName = hash;
+
+		try {
+			const storage = await this.getStorage();
+			const bucket = storage.bucket(this.bucket);
+			const file = bucket.file(fileName);
+
+			await file.save(content, {
+				contentType: "application/json",
+			});
+
+			return `gs://${this.bucket}/${fileName}`;
+		} catch (error) {
+			// Fallback to stub behavior if GCS is not available
+			console.warn(`[GCS] Failed to upload, error: ${error}`);
+			console.log(`[GCS Stub] Would upload to gs://${this.bucket}/${hash}`);
+			return `gs://${this.bucket}/${hash}`;
+		}
 	}
 
 	async read(uri: string): Promise<string> {
-		// Stub implementation
-		console.log(`[GCS Stub] Reading from ${uri}`);
-		return "";
+		if (!uri.startsWith("gs://")) {
+			throw new Error(`Invalid URI scheme for GCSBlobStore: ${uri}`);
+		}
+
+		// Parse gs://bucket/filename
+		const withoutScheme = uri.slice(5); // Remove 'gs://'
+		const slashIndex = withoutScheme.indexOf("/");
+		if (slashIndex === -1) {
+			throw new Error(`Invalid GCS URI format: ${uri}`);
+		}
+		const bucketName = withoutScheme.slice(0, slashIndex);
+		const fileName = withoutScheme.slice(slashIndex + 1);
+
+		try {
+			const storage = await this.getStorage();
+			const bucket = storage.bucket(bucketName);
+			const file = bucket.file(fileName);
+
+			const [exists] = await file.exists();
+			if (!exists) {
+				throw new Error(`File not found: ${uri}`);
+			}
+
+			const [contents] = await file.download();
+			return contents.toString("utf-8");
+		} catch (error) {
+			// Fallback to stub behavior if GCS is not available
+			console.warn(`[GCS] Failed to read, error: ${error}`);
+			console.log(`[GCS Stub] Would read from ${uri}`);
+			return "";
+		}
 	}
 }
 

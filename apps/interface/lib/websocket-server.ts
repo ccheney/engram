@@ -5,6 +5,9 @@ import { createRedisSubscriber, type SessionUpdate } from '@engram/storage/redis
 const falkor = createFalkorClient();
 const redisSubscriber = createRedisSubscriber();
 
+// Global channel for session list updates
+const SESSIONS_CHANNEL = 'sessions:updates';
+
 interface LineageNode {
     id: string;
     label: string;
@@ -167,4 +170,102 @@ async function getFullTimeline(sessionId: string) {
         }
     }
     return { timeline };
+}
+
+// Fetch all sessions for the homepage
+async function getAllSessions(limit = 50) {
+    const cypher = `
+        MATCH (s:Session)
+        OPTIONAL MATCH (s)-[:TRIGGERS]->(n)
+        WITH s, count(n) as eventCount, max(n.vt_start) as lastEventAt
+        RETURN s, eventCount, lastEventAt
+        ORDER BY COALESCE(s.started_at, s.startedAt, s.lastEventAt) DESC
+        LIMIT $limit
+    `;
+    // biome-ignore lint/suspicious/noExplicitAny: FalkorDB response
+    const result: any = await falkor.query(cypher, { limit });
+
+    const active: any[] = [];
+    const recent: any[] = [];
+    const now = Date.now();
+    const activeThreshold = 5 * 60 * 1000; // 5 minutes
+
+    if (Array.isArray(result)) {
+        for (const row of result) {
+            const node = row.s;
+            if (node && node.properties) {
+                const props = node.properties;
+                // Handle both property naming conventions
+                const sessionStartedAt = props.started_at || props.startedAt || now;
+                const sessionLastEventAt = row.lastEventAt || props.lastEventAt || sessionStartedAt;
+                const isActive = (now - sessionLastEventAt) < activeThreshold;
+
+                const session = {
+                    id: props.id,
+                    title: props.title || null,
+                    userId: props.user_id || 'unknown',
+                    startedAt: sessionStartedAt,
+                    lastEventAt: sessionLastEventAt,
+                    eventCount: row.eventCount || 0,
+                    preview: props.preview || null,
+                    isActive,
+                };
+
+                if (isActive) {
+                    active.push(session);
+                } else {
+                    recent.push(session);
+                }
+            }
+        }
+    }
+
+    return { active, recent };
+}
+
+// Handle global sessions list WebSocket connection
+export async function handleSessionsConnection(ws: WebSocket) {
+    console.log('[WS] Client connected to sessions list');
+
+    // Subscribe to global sessions channel for real-time updates
+    const unsubscribe = await redisSubscriber.subscribe(SESSIONS_CHANNEL, (update: SessionUpdate) => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+
+        // Forward session events to the WebSocket client
+        // The update.type will be 'session_created', 'session_updated', or 'session_closed'
+        ws.send(JSON.stringify({
+            type: update.type,
+            data: update.data,
+        }));
+    });
+
+    // Send initial session list
+    try {
+        await falkor.connect();
+        const sessionsData = await getAllSessions();
+        ws.send(JSON.stringify({ type: 'sessions', data: sessionsData }));
+    } catch (error) {
+        console.error('[WS] Initial sessions fetch error:', error);
+        ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch sessions' }));
+    }
+
+    ws.on('close', async () => {
+        console.log('[WS] Client disconnected from sessions list');
+        await unsubscribe();
+    });
+
+    ws.on('message', async (message) => {
+        try {
+            const data = JSON.parse(message.toString());
+
+            // Client can request a full refresh
+            if (data.type === 'refresh' || data.type === 'subscribe') {
+                await falkor.connect();
+                const sessionsData = await getAllSessions();
+                ws.send(JSON.stringify({ type: 'sessions', data: sessionsData }));
+            }
+        } catch (e) {
+            console.error('[WS] Invalid message', e);
+        }
+    });
 }

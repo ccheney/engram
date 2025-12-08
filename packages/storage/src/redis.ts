@@ -9,11 +9,14 @@ function getRedisUrl(): string {
 }
 
 export interface SessionUpdate {
-	type: "lineage" | "timeline" | "node_created";
+	type: "lineage" | "timeline" | "node_created" | "session_created" | "session_updated" | "session_closed";
 	sessionId: string;
 	data: unknown;
 	timestamp: number;
 }
+
+// Global channel for homepage session list updates
+const SESSIONS_CHANNEL = "sessions:updates";
 
 export function createRedisPublisher() {
 	let client: RedisClientType | null = null;
@@ -52,6 +55,21 @@ export function createRedisPublisher() {
 		await conn.publish(channel, JSON.stringify(message));
 	};
 
+	// Publish to the global sessions channel for homepage updates
+	const publishGlobalSessionEvent = async (
+		eventType: "session_created" | "session_updated" | "session_closed",
+		sessionData: unknown
+	) => {
+		const conn = await connect();
+		const message: SessionUpdate = {
+			type: eventType,
+			sessionId: "", // Global event, not tied to specific session
+			data: sessionData,
+			timestamp: Date.now(),
+		};
+		await conn.publish(SESSIONS_CHANNEL, JSON.stringify(message));
+	};
+
 	const disconnect = async () => {
 		if (client?.isOpen) {
 			await client.quit();
@@ -62,6 +80,7 @@ export function createRedisPublisher() {
 	return {
 		connect,
 		publishSessionUpdate,
+		publishGlobalSessionEvent,
 		disconnect,
 	};
 }
@@ -80,9 +99,12 @@ export function createRedisSubscriber() {
 		return client;
 	};
 
-	const subscribe = async (sessionId: string, callback: (message: SessionUpdate) => void) => {
+	const subscribe = async (channelOrSessionId: string, callback: (message: SessionUpdate) => void) => {
 		const conn = await connect();
-		const channel = `session:${sessionId}:updates`;
+		// Support both session-specific channels and global channels
+		const channel = channelOrSessionId.includes(":")
+			? channelOrSessionId  // Already a full channel name (e.g., "sessions:updates")
+			: `session:${channelOrSessionId}:updates`;  // Session ID, build channel name
 
 		// Track callbacks per channel
 		if (!subscriptions.has(channel)) {

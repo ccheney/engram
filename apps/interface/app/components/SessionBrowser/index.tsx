@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSessionsStream } from "@app/hooks/useSessionsStream";
 
 interface Session {
     id: string;
@@ -12,19 +13,6 @@ interface Session {
     eventCount: number;
     preview: string | null;
     isActive: boolean;
-}
-
-interface SessionsResponse {
-    success: boolean;
-    data: {
-        active: Session[];
-        recent: Session[];
-        sessions: Session[];
-        pagination: {
-            total: number;
-            hasMore: boolean;
-        };
-    };
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -265,38 +253,19 @@ function SessionCard({
 }
 
 export function SessionBrowser() {
-    const [activeSessions, setActiveSessions] = useState<Session[]>([]);
-    const [recentSessions, setRecentSessions] = useState<Session[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [hoveredId, setHoveredId] = useState<string | null>(null);
     const router = useRouter();
 
-    useEffect(() => {
-        async function fetchSessions() {
-            try {
-                const res = await fetch("/api/sessions?limit=50");
-                const data: SessionsResponse = await res.json();
+    // Use WebSocket streaming for real-time session updates - NO POLLING
+    const {
+        active: activeSessions,
+        recent: recentSessions,
+        isConnected,
+        error,
+    } = useSessionsStream();
 
-                if (data.success) {
-                    setActiveSessions(data.data.active || []);
-                    setRecentSessions(data.data.recent || data.data.sessions || []);
-                } else {
-                    setError("Failed to load sessions");
-                }
-            } catch {
-                setError("Connection error");
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        fetchSessions();
-
-        // Poll for active sessions every 5 seconds
-        const interval = setInterval(fetchSessions, 5000);
-        return () => clearInterval(interval);
-    }, []);
+    // Show loading state while WebSocket connects
+    const loading = !isConnected && activeSessions.length === 0 && recentSessions.length === 0;
 
     const handleSessionClick = (sessionId: string) => {
         router.push(`/session/${sessionId}`);

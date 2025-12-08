@@ -64,16 +64,38 @@ async function startPersistenceConsumer() {
 				// Persist to FalkorDB
 				await falkor.connect();
 
-				// 1. Ensure Session Exists and update lastEventAt
+				// 1. Check if session already exists
+				const existingSession = await falkor.query(
+					`MATCH (s:Session {id: $sessionId}) RETURN s`,
+					{ sessionId },
+				);
+				const isNewSession = !existingSession || (Array.isArray(existingSession) && existingSession.length === 0);
+
+				// 2. Ensure Session Exists and update lastEventAt
 				const now = Date.now();
 				await falkor.query(
 					`MERGE (s:Session {id: $sessionId})
-                     ON CREATE SET s.startedAt = $now, s.lastEventAt = $now
+                     ON CREATE SET s.started_at = $now, s.lastEventAt = $now
                      ON MATCH SET s.lastEventAt = $now`,
 					{ sessionId, now },
 				);
 
-				// 2. Create Thought/Event Node
+				// 3. If new session, publish to global sessions channel for homepage
+				if (isNewSession) {
+					await redis.publishGlobalSessionEvent("session_created", {
+						id: sessionId,
+						title: null,
+						userId: event.metadata?.user_id || "unknown",
+						startedAt: now,
+						lastEventAt: now,
+						eventCount: 1,
+						preview: null,
+						isActive: true,
+					});
+					logger.info({ sessionId }, "Published session_created event");
+				}
+
+				// 4. Create Thought/Event Node
 				// Determine type and content
 				const type = event.type || "unknown";
 				const content = event.content || event.thought || "";

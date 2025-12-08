@@ -2,7 +2,7 @@ import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
 import { WebSocketServer } from "ws";
-import { handleSessionConnection } from "./lib/websocket-server";
+import { handleSessionConnection, handleSessionsConnection } from "./lib/websocket-server";
 
 const port = parseInt(process.env.PORT || "5000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -20,7 +20,15 @@ app.prepare().then(() => {
 	server.on("upgrade", (request, socket, head) => {
 		const { pathname } = parse(request.url || "", true);
 
-		// Match /api/ws/session/:sessionId
+		// Match /api/ws/sessions (global sessions list)
+		if (pathname === "/api/ws/sessions") {
+			wss.handleUpgrade(request, socket, head, (ws) => {
+				handleSessionsConnection(ws);
+			});
+			return;
+		}
+
+		// Match /api/ws/session/:sessionId (individual session)
 		if (pathname && pathname.startsWith("/api/ws/session/")) {
 			const parts = pathname.split("/");
 			// /api/ws/session/123 -> ['', 'api', 'ws', 'session', '123']

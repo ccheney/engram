@@ -4,14 +4,25 @@ import { FalkorDB, type Graph } from "falkordb";
 export type QueryParam = null | string | number | boolean | QueryParams | Array<QueryParam>;
 export type QueryParams = { [key: string]: QueryParam };
 
-// FalkorDB response types
-export interface FalkorNode {
+// =============================================================================
+// Generic FalkorDB Response Types
+// =============================================================================
+
+/**
+ * Generic FalkorDB node type with typed properties
+ * @template T - The shape of the node's properties
+ */
+export interface FalkorNode<T extends Record<string, unknown> = Record<string, unknown>> {
 	id: number;
 	labels: string[];
-	properties: Record<string, unknown>;
+	properties: T;
 }
 
-export interface FalkorEdge {
+/**
+ * Generic FalkorDB edge type with typed properties
+ * @template T - The shape of the edge's properties
+ */
+export interface FalkorEdge<T extends Record<string, unknown> = Record<string, unknown>> {
 	id: number;
 	relationshipType?: string;
 	relation?: string;
@@ -20,11 +31,68 @@ export interface FalkorEdge {
 	srcNodeId?: number;
 	destinationId?: number;
 	destNodeId?: number;
-	properties: Record<string, unknown>;
+	properties: T;
 }
 
-export type FalkorRow = Record<string, unknown>;
-export type FalkorResult = FalkorRow[];
+// =============================================================================
+// Bitemporal Properties (shared across domain types)
+// =============================================================================
+
+export interface BitemporalProperties {
+	vt_start: number;
+	vt_end: number;
+	tt_start: number;
+	tt_end: number;
+}
+
+// =============================================================================
+// Domain Property Types
+// =============================================================================
+
+export interface SessionProperties extends Partial<BitemporalProperties> {
+	id: string;
+	started_at?: number;
+	startedAt?: number;
+	lastEventAt?: number;
+	title?: string;
+	userId?: string;
+	user_id?: string;
+	preview?: string;
+	[key: string]: unknown;
+}
+
+export interface ThoughtProperties extends Partial<BitemporalProperties> {
+	id: string;
+	type: string;
+	role: string;
+	content: string;
+	timestamp?: string;
+	preview?: string;
+	[key: string]: unknown;
+}
+
+export interface ToolCallProperties extends Partial<BitemporalProperties> {
+	id: string;
+	name: string;
+	arguments?: string;
+	result?: string;
+	[key: string]: unknown;
+}
+
+// =============================================================================
+// Domain Node Types (Convenience aliases)
+// =============================================================================
+
+export type SessionNode = FalkorNode<SessionProperties>;
+export type ThoughtNode = FalkorNode<ThoughtProperties>;
+export type ToolCallNode = FalkorNode<ToolCallProperties>;
+
+// =============================================================================
+// Query Result Types
+// =============================================================================
+
+export type FalkorRow<T = Record<string, unknown>> = T;
+export type FalkorResult<T = Record<string, unknown>> = FalkorRow<T>[];
 
 export class FalkorClient {
 	private dbPromise;
@@ -52,10 +120,29 @@ export class FalkorClient {
 		}
 	}
 
-	async query(cypher: string, params: QueryParams = {}): Promise<FalkorResult> {
+	/**
+	 * Execute a typed Cypher query
+	 * @template T - The expected row shape of the result
+	 * @param cypher - The Cypher query string
+	 * @param params - Query parameters
+	 * @returns Typed array of result rows
+	 *
+	 * @example
+	 * // Query returning session nodes
+	 * interface SessionRow { s: SessionNode }
+	 * const result = await falkor.query<SessionRow>('MATCH (s:Session) RETURN s');
+	 * result[0].s.properties.id; // typed as string
+	 *
+	 * @example
+	 * // Query returning scalar values
+	 * interface CountRow { cnt: number }
+	 * const result = await falkor.query<CountRow>('MATCH (n) RETURN count(n) as cnt');
+	 * result[0].cnt; // typed as number
+	 */
+	async query<T = Record<string, unknown>>(cypher: string, params: QueryParams = {}): Promise<FalkorResult<T>> {
 		if (!this.graph) await this.connect();
 		const result = await this.graph!.query(cypher, { params });
-		return result.data as FalkorResult;
+		return result.data as FalkorResult<T>;
 	}
 
 	async disconnect() {

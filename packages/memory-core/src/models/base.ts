@@ -1,7 +1,29 @@
 import { z } from "zod";
 
-// We can't import the interface directly into Zod easily without defining the schema twice usually,
-// but we can define the schema then infer.
+// Re-export storage types for convenience (excluding node types that conflict with Zod schemas)
+export type {
+	BitemporalProperties,
+	FalkorEdge,
+	FalkorNode,
+	FalkorResult,
+	FalkorRow,
+	QueryParam,
+	QueryParams,
+	SessionProperties,
+	ThoughtProperties,
+	ToolCallProperties,
+} from "@engram/storage/falkor";
+
+// Storage node types have different names to avoid conflict with Zod-inferred types
+export type {
+	SessionNode as FalkorSessionNode,
+	ThoughtNode as FalkorThoughtNode,
+	ToolCallNode as FalkorToolCallNode,
+} from "@engram/storage/falkor";
+
+// =============================================================================
+// Zod Schemas for validation
+// =============================================================================
 
 export const BitemporalSchema = z.object({
 	vt_start: z.number(),

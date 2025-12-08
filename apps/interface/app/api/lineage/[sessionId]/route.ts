@@ -1,12 +1,17 @@
-import { createFalkorClient, type FalkorEdge, type FalkorNode } from "@engram/storage/falkor";
+import {
+	createFalkorClient,
+	type FalkorEdge,
+	type FalkorNode,
+	type SessionNode,
+} from "@engram/storage/falkor";
 import { apiError, apiSuccess } from "@lib/api-response";
 import { z } from "zod";
 
 const falkor = createFalkorClient();
 
-// Helper type for row access
+// Typed query result interface for lineage queries
 interface LineageRow {
-	s?: FalkorNode;
+	s?: SessionNode;
 	path_nodes?: FalkorNode[];
 	path_edges?: FalkorEdge[];
 }
@@ -56,7 +61,7 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
       RETURN s, nodes(p) as path_nodes, relationships(p) as path_edges
     `;
 
-		const res = await falkor.query(query, { sessionId });
+		const res = await falkor.query<LineageRow>(query, { sessionId });
 
 		// 2. Transform to Graph structure { nodes: [], links: [] }
 		const nodesMap = new Map<string, unknown>();
@@ -67,8 +72,7 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 
 		if (res && Array.isArray(res)) {
 			// FalkorDB returns named columns: { s, path_nodes, path_edges }
-			for (const r of res) {
-				const row = r as LineageRow;
+			for (const row of res) {
 				// Session Node - accessed by column name
 				const sessionNode = row.s;
 				if (sessionNode) {
@@ -110,8 +114,7 @@ export async function GET(_request: Request, props: { params: Promise<{ sessionI
 			}
 
 			// Second pass: process edges using the internal ID to UUID map
-			for (const r of res) {
-				const row = r as LineageRow;
+			for (const row of res) {
 				const pathEdges = row.path_edges;
 				if (Array.isArray(pathEdges)) {
 					for (const e of pathEdges) {

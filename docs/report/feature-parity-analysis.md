@@ -15,12 +15,12 @@ This report provides an exhaustive analysis of the Engram platform's implementat
 
 | Metric | Score | Details |
 |--------|-------|---------|
-| **Overall Feature Parity** | **78%** | Core architecture implemented, key gaps in search/replay |
+| **Overall Feature Parity** | **80%** | Core architecture implemented, key gaps in search/replay |
 | **Infrastructure** | **95%** | Monorepo, Docker, GCP IaC complete |
 | **Cognitive Ingestion** | **90%** | Protocol parsing, extraction, redaction working |
 | **Bitemporal Memory** | **85%** | Graph schema, queries, persistence functional |
 | **Semantic Search** | **65%** | Dense search working, sparse/hybrid incomplete |
-| **Deterministic Execution** | **55%** | VFS/patches working, replay engine stubbed |
+| **Deterministic Execution** | **70%** | VFS/patches working, Wassette integrated, replay stubbed |
 | **Agent Control** | **60%** | MCP integration working, context assembly stubbed |
 | **Observability Interface** | **85%** | UI, API, real-time WebSocket functional |
 
@@ -751,9 +751,13 @@ export class ReplayEngine {
 - Network disabled
 - Filesystem sandboxing
 
-**Implementation Status:** ❌ **NOT IMPLEMENTED**
+**Implementation Status:** ✅ **IMPLEMENTED**
 
-The original Wassette (Wasm sandbox) concept is not present. The execution service operates directly on the VFS without Wasm isolation.
+Wassette is installed and integrated:
+- Binary: `~/.local/bin/wassette` (v0.3.4)
+- Control service connects via `McpToolAdapter(wassettePath, ["serve", "--stdio"])`
+- Integration tests: `tests/e2e/wassette_integration.test.ts`
+- Multi-adapter pattern connects both Wassette (Wasm tools) and Execution service (VFS)
 
 ### 5.8 MCP Tools
 
@@ -1038,11 +1042,12 @@ export function checkRole(requiredRole: Role): boolean
 
 | # | Gap | Impact | Spec Reference |
 |---|-----|--------|----------------|
-| 5 | Wasm sandbox not implemented | No code execution isolation | define-wassette-runtime-configuration.md |
-| 6 | Code embedding uses text model | Suboptimal code search | select-code-embedding-model.md |
-| 7 | Archive before prune not implemented | No cold storage | implement-graph-pruning-strategy.md |
-| 8 | Rehydrator session filtering incomplete | Time-travel may be global | create-file-state-rehydrator.md |
-| 9 | Tool extraction from LLM incomplete | Agent may miss tool calls | define-decision-loop-logic.md |
+| 5 | Code embedding uses text model | Suboptimal code search | select-code-embedding-model.md |
+| 6 | Archive before prune not implemented | No cold storage | implement-graph-pruning-strategy.md |
+| 7 | Rehydrator session filtering incomplete | Time-travel may be global | create-file-state-rehydrator.md |
+| 8 | Tool extraction from LLM incomplete | Agent may miss tool calls | define-decision-loop-logic.md |
+
+*Note: Wasm sandbox (Wassette) is already implemented - binary at `~/.local/bin/wassette`*
 
 ### Minor Gaps (P2 - Nice to Have)
 
@@ -1070,11 +1075,11 @@ export function checkRole(requiredRole: Role): boolean
 │ Cognitive Ingestion     │ ██████████████████░░░░░░ 90%             │
 │ Bitemporal Memory       │ █████████████████░░░░░░░ 85%             │
 │ Observability Interface │ █████████████████░░░░░░░ 85%             │
+│ Deterministic Execution │ ██████████████░░░░░░░░░░ 70%             │
 │ Semantic Search         │ █████████████░░░░░░░░░░░ 65%             │
 │ Agent Control           │ ████████████░░░░░░░░░░░░ 60%             │
-│ Deterministic Execution │ ███████████░░░░░░░░░░░░░ 55%             │
 ├─────────────────────────┼──────────────────────────────────────────┤
-│ OVERALL                 │ ████████████████░░░░░░░░ 78%             │
+│ OVERALL                 │ ████████████████░░░░░░░░ 80%             │
 └─────────────────────────┴──────────────────────────────────────────┘
 ```
 
@@ -1169,7 +1174,7 @@ export function checkRole(requiredRole: Role): boolean
 
 ## Part XI: Conclusion
 
-The Engram platform has achieved **78% feature parity** with its original specifications. The core architecture is sound, with excellent implementations of:
+The Engram platform has achieved **80% feature parity** with its original specifications. The core architecture is sound, with excellent implementations of:
 
 - **Infrastructure**: Turborepo monorepo, Docker Compose, GCP IaC
 - **Ingestion**: Multi-provider streaming parsers with full extraction

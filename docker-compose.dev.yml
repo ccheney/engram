@@ -23,9 +23,10 @@ services:
       - redpanda-data:/var/lib/redpanda/data
     healthcheck:
       test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy: true'"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   falkordb:
     image: falkordb/falkordb:latest
@@ -54,6 +55,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # NOTE: memory-service is disabled in Docker due to @confluentinc/kafka-javascript
+  # native binding incompatibility with Bun runtime. Run it locally instead:
+  #   bun run --filter=memory-service dev
+  #
+  # To fix: Replace @confluentinc/kafka-javascript with kafkajs in packages/storage
+  # memory-service:
+  #   build:
+  #     context: .
+  #     dockerfile: apps/memory/Dockerfile.dev
+  #   platform: linux/amd64
+  #   environment:
+  #     - REDPANDA_BROKERS=redpanda:9092
+  #     - FALKORDB_URL=redis://falkordb:6379
+  #     - REDIS_URL=redis://falkordb:6379
+  #   volumes:
+  #     - ./apps/memory/src:/app/apps/memory/src:ro
+  #     - ./packages:/app/packages:ro
+  #   depends_on:
+  #     redpanda:
+  #       condition: service_started
+  #     falkordb:
+  #       condition: service_healthy
+  #   restart: unless-stopped
 
 volumes:
   redpanda-data:

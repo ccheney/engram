@@ -114,29 +114,43 @@ async function startPersistenceConsumer() {
 				// Create Node
 				// We use a simplified model where everything is a 'Thought' for now, distinguished by properties
 				// Ideally we should use labels like :Thought:UserMessage etc.
-				const query = `
-                    MATCH (s:Session {id: $sessionId})
-                    CREATE (t:Thought {
-                        id: $eventId,
-                        type: $type,
-                        role: $role,
-                        content: $content,
-                        vt_start: timestamp(),
-                        timestamp: $timestamp
-                    })
-                    MERGE (s)-[:TRIGGERS]->(t)
-                    // TODO: Link to previous thought for chain (NEXT)
-                    // For now, simple TRIGGERS from Session is enough to show in Replay if we sort by time
-                `;
+				const eventTimestamp = event.timestamp || new Date().toISOString();
 
-				await falkor.query(query, {
+				// First, create the thought and link to session
+				const createQuery = `
+					MATCH (s:Session {id: $sessionId})
+					CREATE (t:Thought {
+						id: $eventId,
+						type: $type,
+						role: $role,
+						content: $content,
+						vt_start: timestamp(),
+						timestamp: $timestamp
+					})
+					MERGE (s)-[:TRIGGERS]->(t)
+					RETURN t
+				`;
+
+				await falkor.query(createQuery, {
 					sessionId,
 					eventId,
 					type,
 					role,
 					content,
-					timestamp: event.timestamp || new Date().toISOString(),
+					timestamp: eventTimestamp,
 				});
+
+				// Chain thoughts with NEXT relationship for lineage tracking
+				// Find the previous thought (most recent by vt_start) and link to the new one
+				const chainQuery = `
+					MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(prev:Thought)
+					WHERE prev.id <> $eventId
+					WITH prev ORDER BY prev.vt_start DESC LIMIT 1
+					MATCH (curr:Thought {id: $eventId})
+					MERGE (prev)-[:NEXT]->(curr)
+				`;
+
+				await falkor.query(chainQuery, { sessionId, eventId });
 
 				logger.info({ eventId, sessionId }, "Persisted event to graph");
 

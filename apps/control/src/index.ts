@@ -16,8 +16,8 @@ const wassettePath = `${process.env.HOME}/.local/bin/wassette`;
 const wassetteAdapter = new McpToolAdapter(wassettePath, ["serve", "--stdio"]);
 
 // 2. Execution Service (VFS, TimeTravel)
-// Using 'bun' to run the execution service script
-const executionAdapter = new McpToolAdapter("bun", ["run", "../../apps/execution/src/index.ts"]);
+// Using 'npx tsx' to run the execution service script (Node.js runtime for native module compatibility)
+const executionAdapter = new McpToolAdapter("npx", ["tsx", "../../apps/execution/src/index.ts"]);
 
 // Unified Adapter
 const multiAdapter = new MultiMcpAdapter();

@@ -10,6 +10,8 @@ const MESSAGE_TYPES = {
 	OBSERVATION: "observation",
 	SYSTEM: "system",
 	RESPONSE: "response",
+	TURN: "turn",
+	FILETOUCH: "filetouch",
 } as const;
 
 type MessageType = (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
@@ -30,6 +32,7 @@ interface ConsolidatedMessage {
 	isThinkingBlock: boolean;
 	nodeIds: string[];
 	isStreaming?: boolean;
+	toolName?: string;
 }
 
 // Detect if content is a thinking/reasoning block
@@ -152,7 +155,11 @@ function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
 			if (typeof content === "string" && content.trim()) {
 				// Determine message type from event type
 				let msgType: MessageType = MESSAGE_TYPES.THOUGHT;
-				if (type.includes(MESSAGE_TYPES.RESPONSE)) {
+				if (type.includes(MESSAGE_TYPES.TURN)) {
+					msgType = MESSAGE_TYPES.TURN;
+				} else if (type.includes(MESSAGE_TYPES.FILETOUCH)) {
+					msgType = MESSAGE_TYPES.FILETOUCH;
+				} else if (type.includes(MESSAGE_TYPES.RESPONSE)) {
 					msgType = MESSAGE_TYPES.RESPONSE;
 				} else if (type.includes(MESSAGE_TYPES.ACTION)) {
 					msgType = MESSAGE_TYPES.ACTION;
@@ -170,6 +177,7 @@ function consolidateTimeline(timeline: TimelineEvent[]): ConsolidatedMessage[] {
 					tokenCount: 1,
 					isThinkingBlock: false,
 					nodeIds: [nodeId],
+					toolName: (event as { toolName?: string }).toolName,
 				});
 			}
 		}
@@ -556,11 +564,124 @@ function QueryCard({ content }: { content: string }) {
 	);
 }
 
-// Stats header with animated counters - Monochrome + Amber
+// Turn header - Amber palette (matches Turn nodes in graph)
+function TurnHeader({ turnNumber }: { turnNumber: string }) {
+	return (
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				gap: "12px",
+				padding: "12px 0",
+				borderBottom: "1px solid rgba(251, 191, 36, 0.15)",
+				marginBottom: "8px",
+			}}
+		>
+			<div
+				style={{
+					width: "24px",
+					height: "24px",
+					borderRadius: "6px",
+					background: "linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.15))",
+					border: "1px solid rgba(251, 191, 36, 0.3)",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					boxShadow: "0 0 10px rgba(251, 191, 36, 0.2)",
+				}}
+			>
+				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgb(251, 191, 36)" strokeWidth="2">
+					<circle cx="12" cy="12" r="3" />
+					<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83" />
+				</svg>
+			</div>
+			<span
+				style={{
+					fontFamily: "Orbitron, sans-serif",
+					fontSize: "12px",
+					fontWeight: 600,
+					letterSpacing: "0.15em",
+					color: "rgb(251, 191, 36)",
+					textTransform: "uppercase",
+					textShadow: "0 0 12px rgba(251, 191, 36, 0.3)",
+				}}
+			>
+				{turnNumber}
+			</span>
+		</div>
+	);
+}
+
+// FileTouch card - Green palette (matches FileTouch nodes in graph)
+function FileTouchCard({ filePath, toolName }: { filePath: string; toolName?: string }) {
+	const getToolIcon = (tool?: string) => {
+		switch (tool?.toLowerCase()) {
+			case "read":
+				return "📖";
+			case "edit":
+				return "✏️";
+			case "write":
+				return "📝";
+			case "glob":
+				return "🔍";
+			case "grep":
+				return "🔎";
+			default:
+				return "📄";
+		}
+	};
+
+	return (
+		<div
+			style={{
+				display: "flex",
+				alignItems: "center",
+				gap: "10px",
+				padding: "10px 14px",
+				background: "linear-gradient(135deg, rgba(34, 197, 94, 0.06) 0%, rgba(34, 197, 94, 0.1) 100%)",
+				borderRadius: "8px",
+				border: "1px solid rgba(34, 197, 94, 0.2)",
+				borderLeft: "3px solid rgb(34, 197, 94)",
+			}}
+		>
+			<span style={{ fontSize: "14px" }}>{getToolIcon(toolName)}</span>
+			<div style={{ flex: 1, minWidth: 0 }}>
+				{toolName && (
+					<span
+						style={{
+							fontFamily: "JetBrains Mono, monospace",
+							fontSize: "9px",
+							fontWeight: 600,
+							color: "rgb(34, 197, 94)",
+							letterSpacing: "0.1em",
+							textTransform: "uppercase",
+							marginRight: "8px",
+						}}
+					>
+						{toolName}
+					</span>
+				)}
+				<span
+					style={{
+						fontFamily: "JetBrains Mono, monospace",
+						fontSize: "11px",
+						color: "rgba(200, 220, 200, 0.9)",
+						wordBreak: "break-all",
+					}}
+				>
+					{filePath}
+				</span>
+			</div>
+		</div>
+	);
+}
+
+// Stats header with animated counters - Monochrome + Cyan for reasoning
 function StatsHeader({ messages }: { messages: ConsolidatedMessage[] }) {
 	const reasoningCount = messages.filter((m) => m.isThinkingBlock).length;
-	const responseCount = messages.filter((m) => m.type === "response").length;
-	const totalTokens = messages.reduce((sum, m) => sum + m.tokenCount, 0);
+	const responseCount = messages.filter((m) => m.type === MESSAGE_TYPES.RESPONSE).length;
+	const fileTouchCount = messages.filter((m) => m.type === MESSAGE_TYPES.FILETOUCH).length;
+	const turnCount = messages.filter((m) => m.type === MESSAGE_TYPES.TURN).length;
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
@@ -569,22 +690,28 @@ function StatsHeader({ messages }: { messages: ConsolidatedMessage[] }) {
 
 	const stats = [
 		{
+			label: "TURNS",
+			value: turnCount,
+			color: "rgb(251, 191, 36)",
+			glowColor: "rgba(251, 191, 36, 0.5)",
+		},
+		{
 			label: "REASONING",
 			value: reasoningCount,
 			color: "rgb(34, 211, 238)",
 			glowColor: "rgba(34, 211, 238, 0.5)",
 		},
 		{
+			label: "FILES",
+			value: fileTouchCount,
+			color: "rgb(34, 197, 94)",
+			glowColor: "rgba(34, 197, 94, 0.5)",
+		},
+		{
 			label: "OUTPUT",
 			value: responseCount,
 			color: "rgb(226, 232, 240)",
 			glowColor: "rgba(226, 232, 240, 0.3)",
-		},
-		{
-			label: "TOKENS",
-			value: totalTokens,
-			color: "rgba(148, 163, 184, 0.9)",
-			glowColor: "rgba(148, 163, 184, 0.3)",
 		},
 	];
 
@@ -924,10 +1051,8 @@ export function SessionReplay({ data, selectedNodeId, onEventHover }: SessionRep
 		return <EmptyState />;
 	}
 
-	// Group messages: first non-thinking = query, thinking blocks = reasoning, response = output
-	const query = messages.find((m) => !m.isThinkingBlock && m.type !== "response");
-	const reasoning = messages.filter((m) => m.isThinkingBlock);
-	const response = messages.find((m) => m.type === "response");
+	// Track reasoning index for trace numbering
+	let reasoningIndex = 0;
 
 	return (
 		<div
@@ -975,220 +1100,219 @@ export function SessionReplay({ data, selectedNodeId, onEventHover }: SessionRep
 						}}
 					/>
 
-					{/* Query Section */}
-					{query && (
-						<div
-							style={{
-								animation: "fadeInUp 0.4s ease-out",
-								position: "relative",
-								paddingLeft: "32px",
-							}}
-							onMouseEnter={() => handleHover(query.nodeIds)}
-							onMouseLeave={() => handleHover(null)}
-						>
-							{/* Timeline node - slate/silver */}
-							<div
-								style={{
-									position: "absolute",
-									left: "4px",
-									top: "28px",
-									width: "16px",
-									height: "16px",
-									borderRadius: "50%",
-									background: "rgb(15, 20, 30)",
-									border: "3px solid rgb(148, 163, 184)",
-									boxShadow: "0 0 10px rgba(148, 163, 184, 0.3)",
-									zIndex: 1,
-								}}
-							/>
-							<div
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: "10px",
-									marginBottom: "10px",
-								}}
-							>
-								<span
-									style={{
-										fontFamily: "Orbitron, sans-serif",
-										fontSize: "11px",
-										fontWeight: 600,
-										letterSpacing: "0.2em",
-										color: "rgb(148, 163, 184)",
-										textTransform: "uppercase",
-									}}
-								>
-									Query
-								</span>
-								<TimestampBadge timestamp={query.timestamp} />
-							</div>
-							<QueryCard content={query.content} />
-						</div>
-					)}
+					{/* Render messages in order */}
+					{messages.map((msg, i) => {
+						const isHighlighted = selectedNodeId
+							? msg.nodeIds.includes(selectedNodeId)
+							: hoveredNodeIds
+								? msg.nodeIds.some((id) => hoveredNodeIds.includes(id))
+								: true;
 
-					{/* Reasoning Section - Cyan palette (matches graph) */}
-					{reasoning.length > 0 && (
-						<div
-							style={{
-								animation: "fadeInUp 0.4s ease-out 0.1s backwards",
-								position: "relative",
-								paddingLeft: "32px",
-								marginTop: "12px",
-							}}
-						>
-							{/* Timeline node */}
-							<div
-								style={{
-									position: "absolute",
-									left: "4px",
-									top: "4px",
-									width: "16px",
-									height: "16px",
-									borderRadius: "50%",
-									background: "rgb(15, 20, 30)",
-									border: "3px solid rgb(34, 211, 238)",
-									boxShadow: "0 0 12px rgba(34, 211, 238, 0.5)",
-									zIndex: 1,
-								}}
-							/>
-							<div
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: "10px",
-									marginBottom: "12px",
-								}}
-							>
-								<span
-									style={{
-										fontFamily: "Orbitron, sans-serif",
-										fontSize: "11px",
-										fontWeight: 600,
-										letterSpacing: "0.2em",
-										color: "rgb(34, 211, 238)",
-										textTransform: "uppercase",
-										textShadow: "0 0 15px rgba(34, 211, 238, 0.4)",
-									}}
-								>
-									Reasoning Trace
-								</span>
-								<span
-									style={{
-										fontFamily: "JetBrains Mono, monospace",
-										fontSize: "9px",
-										fontWeight: 600,
-										color: "rgba(34, 211, 238, 0.8)",
-										padding: "3px 8px",
-										background: "rgba(34, 211, 238, 0.15)",
-										borderRadius: "4px",
-										border: "1px solid rgba(34, 211, 238, 0.2)",
-									}}
-								>
-									{reasoning.length} steps
-								</span>
-							</div>
-
-							<div
-								style={{
-									display: "flex",
-									flexDirection: "column",
-									gap: "8px",
-								}}
-							>
-								{reasoning.map((msg, i) => {
-									const isHighlighted = selectedNodeId
-										? msg.nodeIds.includes(selectedNodeId)
-										: hoveredNodeIds
-											? msg.nodeIds.some((id) => hoveredNodeIds.includes(id))
-											: true;
-
-									return (
-										<div
-											key={`${msg.id}-${i}`}
-											style={{
-												opacity: isHighlighted ? 1 : 0.4,
-												transition: "opacity 0.2s ease",
-												animation: `fadeInUp 0.3s ease-out ${0.15 + i * 0.04}s backwards`,
-											}}
-											onMouseEnter={() => handleHover(msg.nodeIds)}
-											onMouseLeave={() => handleHover(null)}
-										>
-											<ReasoningTrace
-												content={msg.content}
-												isExpanded={expandedTraces.has(msg.id)}
-												onToggle={() => toggleTrace(msg.id)}
-												index={i}
-											/>
-										</div>
-									);
-								})}
-							</div>
-						</div>
-					)}
-
-					{/* Response Section */}
-					{response && (
-						<div
-							style={{
-								animation: "fadeInUp 0.5s ease-out 0.3s backwards",
-								position: "relative",
-								paddingLeft: "32px",
-								marginTop: "12px",
-							}}
-							onMouseEnter={() => handleHover(response.nodeIds)}
-							onMouseLeave={() => handleHover(null)}
-						>
-							{/* Timeline node - larger for output, amber accent */}
-							<div
-								style={{
-									position: "absolute",
-									left: "2px",
-									top: "4px",
-									width: "20px",
-									height: "20px",
-									borderRadius: "50%",
-									background: "linear-gradient(135deg, rgb(251, 191, 36), rgb(245, 158, 11))",
-									boxShadow: "0 0 15px rgba(251, 191, 36, 0.5)",
-									zIndex: 1,
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "center",
-								}}
-							>
+						// Turn header
+						if (msg.type === MESSAGE_TYPES.TURN) {
+							return (
 								<div
+									key={`${msg.id}-${i}`}
 									style={{
-										width: "6px",
-										height: "6px",
-										borderRadius: "50%",
-										background: "rgb(15, 20, 30)",
+										animation: `fadeInUp 0.3s ease-out ${i * 0.03}s backwards`,
+										position: "relative",
+										paddingLeft: "32px",
+										marginTop: i > 0 ? "16px" : "0",
 									}}
-								/>
-							</div>
-							<div
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: "10px",
-									marginBottom: "12px",
-								}}
-							>
-								<TimestampBadge timestamp={response.timestamp} />
-							</div>
-							<ResponseCard
-								content={response.content}
-								tokenCount={response.tokenCount}
-								isStreaming={response.isStreaming}
-								isHighlighted={
-									selectedNodeId
-										? response.nodeIds.includes(selectedNodeId)
-										: hoveredNodeIds
-											? response.nodeIds.some((id) => hoveredNodeIds.includes(id))
-											: true
-								}
-							/>
-						</div>
-					)}
+								>
+									{/* Timeline node - amber for turns */}
+									<div
+										style={{
+											position: "absolute",
+											left: "2px",
+											top: "12px",
+											width: "20px",
+											height: "20px",
+											borderRadius: "50%",
+											background: "linear-gradient(135deg, rgb(251, 191, 36), rgb(245, 158, 11))",
+											boxShadow: "0 0 12px rgba(251, 191, 36, 0.4)",
+											zIndex: 1,
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+										}}
+									>
+										<div
+											style={{
+												width: "6px",
+												height: "6px",
+												borderRadius: "50%",
+												background: "rgb(15, 20, 30)",
+											}}
+										/>
+									</div>
+									<TurnHeader turnNumber={msg.content} />
+								</div>
+							);
+						}
+
+						// FileTouch card
+						if (msg.type === MESSAGE_TYPES.FILETOUCH) {
+							return (
+								<div
+									key={`${msg.id}-${i}`}
+									style={{
+										animation: `fadeInUp 0.3s ease-out ${i * 0.03}s backwards`,
+										position: "relative",
+										paddingLeft: "32px",
+										opacity: isHighlighted ? 1 : 0.4,
+										transition: "opacity 0.2s ease",
+									}}
+									onMouseEnter={() => handleHover(msg.nodeIds)}
+									onMouseLeave={() => handleHover(null)}
+								>
+									{/* Timeline node - green for files */}
+									<div
+										style={{
+											position: "absolute",
+											left: "4px",
+											top: "10px",
+											width: "16px",
+											height: "16px",
+											borderRadius: "50%",
+											background: "rgb(15, 20, 30)",
+											border: "3px solid rgb(34, 197, 94)",
+											boxShadow: "0 0 10px rgba(34, 197, 94, 0.4)",
+											zIndex: 1,
+										}}
+									/>
+									<FileTouchCard filePath={msg.content} toolName={msg.toolName} />
+								</div>
+							);
+						}
+
+						// Reasoning trace (thinking block)
+						if (msg.isThinkingBlock) {
+							const currentIndex = reasoningIndex++;
+							return (
+								<div
+									key={`${msg.id}-${i}`}
+									style={{
+										animation: `fadeInUp 0.3s ease-out ${i * 0.03}s backwards`,
+										position: "relative",
+										paddingLeft: "32px",
+										opacity: isHighlighted ? 1 : 0.4,
+										transition: "opacity 0.2s ease",
+									}}
+									onMouseEnter={() => handleHover(msg.nodeIds)}
+									onMouseLeave={() => handleHover(null)}
+								>
+									{/* Timeline node - cyan for reasoning */}
+									<div
+										style={{
+											position: "absolute",
+											left: "4px",
+											top: "12px",
+											width: "16px",
+											height: "16px",
+											borderRadius: "50%",
+											background: "rgb(15, 20, 30)",
+											border: "3px solid rgb(34, 211, 238)",
+											boxShadow: "0 0 10px rgba(34, 211, 238, 0.4)",
+											zIndex: 1,
+										}}
+									/>
+									<ReasoningTrace
+										content={msg.content}
+										isExpanded={expandedTraces.has(msg.id)}
+										onToggle={() => toggleTrace(msg.id)}
+										index={currentIndex}
+									/>
+								</div>
+							);
+						}
+
+						// Response card
+						if (msg.type === MESSAGE_TYPES.RESPONSE) {
+							return (
+								<div
+									key={`${msg.id}-${i}`}
+									style={{
+										animation: `fadeInUp 0.3s ease-out ${i * 0.03}s backwards`,
+										position: "relative",
+										paddingLeft: "32px",
+										marginTop: "8px",
+									}}
+									onMouseEnter={() => handleHover(msg.nodeIds)}
+									onMouseLeave={() => handleHover(null)}
+								>
+									{/* Timeline node - larger for output */}
+									<div
+										style={{
+											position: "absolute",
+											left: "2px",
+											top: "4px",
+											width: "20px",
+											height: "20px",
+											borderRadius: "50%",
+											background: "linear-gradient(135deg, rgb(226, 232, 240), rgb(148, 163, 184))",
+											boxShadow: "0 0 12px rgba(226, 232, 240, 0.3)",
+											zIndex: 1,
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+										}}
+									>
+										<div
+											style={{
+												width: "6px",
+												height: "6px",
+												borderRadius: "50%",
+												background: "rgb(15, 20, 30)",
+											}}
+										/>
+									</div>
+									<ResponseCard
+										content={msg.content}
+										tokenCount={msg.tokenCount}
+										isStreaming={msg.isStreaming}
+										isHighlighted={isHighlighted}
+									/>
+								</div>
+							);
+						}
+
+						// Query/thought card (user input)
+						if (msg.type === MESSAGE_TYPES.THOUGHT && !msg.isThinkingBlock) {
+							return (
+								<div
+									key={`${msg.id}-${i}`}
+									style={{
+										animation: `fadeInUp 0.3s ease-out ${i * 0.03}s backwards`,
+										position: "relative",
+										paddingLeft: "32px",
+									}}
+									onMouseEnter={() => handleHover(msg.nodeIds)}
+									onMouseLeave={() => handleHover(null)}
+								>
+									{/* Timeline node - slate/silver */}
+									<div
+										style={{
+											position: "absolute",
+											left: "4px",
+											top: "16px",
+											width: "16px",
+											height: "16px",
+											borderRadius: "50%",
+											background: "rgb(15, 20, 30)",
+											border: "3px solid rgb(148, 163, 184)",
+											boxShadow: "0 0 10px rgba(148, 163, 184, 0.3)",
+											zIndex: 1,
+										}}
+									/>
+									<QueryCard content={msg.content} />
+								</div>
+							);
+						}
+
+						// Default: skip unknown types
+						return null;
+					})}
 				</div>
 			</div>
 

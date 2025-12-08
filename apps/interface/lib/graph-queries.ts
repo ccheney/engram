@@ -247,7 +247,7 @@ export async function getSessionLineage(sessionId: string): Promise<LineageData>
 }
 
 /**
- * Get timeline of events for a session (Turns and Reasoning nodes)
+ * Get timeline of events for a session (Turns, Reasoning, and FileTouch nodes)
  * Returns a flat timeline that SessionReplay can process
  */
 export async function getSessionTimeline(sessionId: string): Promise<TimelineData> {
@@ -269,7 +269,15 @@ export async function getSessionTimeline(sessionId: string): Promise<TimelineDat
 	`;
 	const reasoningResult = await falkor.query<{ turnId?: string; r?: FalkorNode }>(reasoningQuery, { sessionId });
 
-	// Build a map of turnId -> reasoning nodes
+	// Query 3: Get all FileTouch nodes for this session's Turns
+	const fileTouchQuery = `
+		MATCH (s:Session {id: $sessionId})-[:HAS_TURN]->(t:Turn)-[:TOUCHES]->(f:FileTouch)
+		RETURN t.id as turnId, f
+		ORDER BY t.sequence_index ASC, f.sequence_index ASC
+	`;
+	const fileTouchResult = await falkor.query<{ turnId?: string; f?: FalkorNode }>(fileTouchQuery, { sessionId });
+
+	// Build maps of turnId -> child nodes
 	const reasoningByTurn = new Map<string, FalkorNode[]>();
 	if (Array.isArray(reasoningResult)) {
 		for (const row of reasoningResult) {
@@ -283,7 +291,21 @@ export async function getSessionTimeline(sessionId: string): Promise<TimelineDat
 		}
 	}
 
+	const fileTouchByTurn = new Map<string, FalkorNode[]>();
+	if (Array.isArray(fileTouchResult)) {
+		for (const row of fileTouchResult) {
+			const turnId = row.turnId;
+			const fileTouch = row.f;
+			if (turnId && fileTouch) {
+				const list = fileTouchByTurn.get(turnId) || [];
+				list.push(fileTouch);
+				fileTouchByTurn.set(turnId, list);
+			}
+		}
+	}
+
 	const timeline: TimelineEvent[] = [];
+	let turnIndex = 0;
 
 	if (Array.isArray(turnsResult)) {
 		for (const row of turnsResult) {
@@ -294,6 +316,16 @@ export async function getSessionTimeline(sessionId: string): Promise<TimelineDat
 			const turnId = props.id as string;
 			const vtStart = props.vt_start as number;
 			const timestamp = vtStart ? new Date(vtStart).toISOString() : new Date().toISOString();
+			turnIndex++;
+
+			// Add turn header event
+			timeline.push({
+				id: `${turnId}-header`,
+				type: "turn",
+				content: `Turn ${turnIndex}`,
+				timestamp,
+				turnIndex,
+			});
 
 			// Add user query event
 			const userContent = props.user_content as string;
@@ -318,6 +350,24 @@ export async function getSessionTimeline(sessionId: string): Promise<TimelineDat
 							type: "thought",
 							content: `<thinking>${content}</thinking>`,
 							timestamp,
+						});
+					}
+				}
+			}
+
+			// Add filetouch events (file operations)
+			const fileTouchNodes = fileTouchByTurn.get(turnId) || [];
+			for (const f of fileTouchNodes) {
+				if (f?.properties) {
+					const filePath = f.properties.file_path as string;
+					const toolName = f.properties.tool_name as string;
+					if (filePath) {
+						timeline.push({
+							id: f.properties.id as string || `${turnId}-filetouch`,
+							type: "filetouch",
+							content: filePath,
+							timestamp,
+							toolName: toolName || "file",
 						});
 					}
 				}

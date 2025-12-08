@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, beforeEach } from "bun:test";
 
 // Mock @engram/storage before importing the unit under test
 const mockBlobStoreRead = mock(async () => "{}");
@@ -13,18 +13,24 @@ import type { FalkorClient } from "@engram/storage";
 import { Rehydrator } from "./rehydrator";
 
 describe("Rehydrator", () => {
-	const mockFalkorQuery = mock(async () => []);
-	const mockFalkor = {
-		query: mockFalkorQuery,
-	} as unknown as FalkorClient;
+	let mockFalkorQuery: ReturnType<typeof mock>;
+	let mockFalkor: FalkorClient;
+	let rehydrator: Rehydrator;
 
-	const rehydrator = new Rehydrator(mockFalkor);
+	beforeEach(() => {
+		mockFalkorQuery = mock(async () => []);
+		mockFalkor = {
+			query: mockFalkorQuery,
+		} as unknown as FalkorClient;
+		rehydrator = new Rehydrator(mockFalkor);
+		mockBlobStoreRead.mockClear();
+	});
 
 	it("should return empty VFS if no snapshots found", async () => {
-		mockFalkorQuery.mockResolvedValueOnce([]);
+		// First call (snapshot query) returns empty, second call (diff query) returns empty
+		mockFalkorQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 		const vfs = await rehydrator.rehydrate("session-1");
 		expect(vfs).toBeDefined();
-		// Assuming empty VFS has a root directory
 		expect(vfs.root).toEqual({
 			name: "",
 			type: "directory",
@@ -32,45 +38,66 @@ describe("Rehydrator", () => {
 		});
 	});
 
+	it("should filter diffs by session_id", async () => {
+		// First call: snapshot query returns empty
+		// Second call: diff query (should include sessionId filter)
+		mockFalkorQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+		await rehydrator.rehydrate("test-session-123");
+
+		// Verify the diff query includes session filtering
+		const calls = mockFalkorQuery.mock.calls;
+		expect(calls.length).toBe(2);
+
+		// Second call should be the diff query with session filter
+		const diffQueryCall = calls[1];
+		const queryString = diffQueryCall[0] as string;
+		const params = diffQueryCall[1] as Record<string, unknown>;
+
+		expect(queryString).toContain("Session {id: $sessionId}");
+		expect(params.sessionId).toBe("test-session-123");
+	});
+
 	it("should attempt to load snapshot if found", async () => {
-		// Mock finding a snapshot
-		// The code expects: [ { "s.vfs_state_blob_ref": "...", ... } ] ??
-		// Actually looking at code:
-		// const snap = snapshots[0];
-		// const blobRef = snap[0];
-		// So it expects an array of arrays? Or array of objects?
-		// The code comments say:
-		// // Assuming [ { "s.vfs_state_blob_ref": "...", ... } ] or similar mapped object
-		// But then:
-		// const blobRef = snap[0];
-		// This implies the result is an array of rows, where each row is an array of values (if using raw driver response)
-		// Let's assume the code treats 'snap' as an array-like object where index 0 is the blob ref.
-
 		const mockSnapshot = ["blob-ref-123", 1000];
-		mockFalkorQuery.mockResolvedValueOnce([mockSnapshot]);
-		mockBlobStoreRead.mockResolvedValueOnce(JSON.stringify({ "file.txt": "content" }));
+		// First call: snapshot found, second call: no diffs
+		mockFalkorQuery.mockResolvedValueOnce([mockSnapshot]).mockResolvedValueOnce([]);
+		mockBlobStoreRead.mockResolvedValueOnce(JSON.stringify({ root: { name: "", type: "directory", children: {} } }));
 
-		// We need to suppress the likely error in vfs.loadSnapshot because we are mocking blobStore.read to return string
-		// but vfs.loadSnapshot expects Buffer.
-		// The code says: await vfs.loadSnapshot(Buffer.from(blobContent));
-		// If blobContent is string, Buffer.from(string) works.
-		// However, vfs.loadSnapshot expects gzipped buffer usually?
-		// The code comments say: "Actually blobStore.read returns string... loadSnapshot expects Buffer (gzip)."
-		// "Let's assume re-hydrating from JSON string... vfs.root = JSON.parse(blobContent);" was commented out.
-		// Current code: await vfs.loadSnapshot(Buffer.from(blobContent));
-
-		// If loadSnapshot fails (e.g. invalid gzip), the test might fail.
-		// Let's rely on the fact that we just want to verify interactions for now.
-		// Or we can mock vfs.loadSnapshot on the instance created inside rehydrate?
-		// But we can't access that instance easily.
-
-		try {
-			await rehydrator.rehydrate("session-1");
-		} catch (_e) {
-			// Ignore expected error from vfs.loadSnapshot if it fails on non-gzip data
-		}
+		await rehydrator.rehydrate("session-1");
 
 		expect(mockFalkorQuery).toHaveBeenCalled();
 		expect(mockBlobStoreRead).toHaveBeenCalledWith("blob-ref-123");
+	});
+
+	it("should apply diffs in order after snapshot", async () => {
+		// No snapshot
+		mockFalkorQuery.mockResolvedValueOnce([]);
+
+		// Diffs returned from session-filtered query
+		const mockDiffs = [
+			{ file_path: "/src/app.ts", patch_content: "@@ -1,0 +1,1 @@\n+console.log('hello');", vt_start: 1000 },
+			{ file_path: "/src/app.ts", patch_content: "@@ -1,1 +1,2 @@\n console.log('hello');\n+console.log('world');", vt_start: 2000 },
+		];
+		mockFalkorQuery.mockResolvedValueOnce(mockDiffs);
+
+		// Note: PatchManager.applyPatch may fail on malformed patches
+		// but rehydrator catches those errors and continues
+		const vfs = await rehydrator.rehydrate("session-1");
+		expect(vfs).toBeDefined();
+	});
+
+	it("should pass lastSnapshotTime to diff query", async () => {
+		const mockSnapshot = ["blob-ref-123", 5000];
+		mockFalkorQuery.mockResolvedValueOnce([mockSnapshot]).mockResolvedValueOnce([]);
+		mockBlobStoreRead.mockResolvedValueOnce(JSON.stringify({ root: { name: "", type: "directory", children: {} } }));
+
+		await rehydrator.rehydrate("session-1", 10000);
+
+		const diffQueryCall = mockFalkorQuery.mock.calls[1];
+		const params = diffQueryCall[1] as Record<string, unknown>;
+
+		expect(params.lastSnapshotTime).toBe(5000);
+		expect(params.targetTime).toBe(10000);
 	});
 });

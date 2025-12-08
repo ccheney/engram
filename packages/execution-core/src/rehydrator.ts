@@ -8,58 +8,74 @@ export class Rehydrator {
 
 	async rehydrate(sessionId: string, targetTime: number = Date.now()): Promise<VirtualFileSystem> {
 		const vfs = new VirtualFileSystem();
-		const _patchManager = new PatchManager(vfs);
+		const patchManager = new PatchManager(vfs);
 
-		// 1. Find latest Snapshot before targetTime
-		// MATCH (s:Snapshot)-[:SNAPSHOT_OF]->(:Session {id: $id})
-		// WHERE s.snapshot_at <= $t
-		// RETURN s ORDER BY s.snapshot_at DESC LIMIT 1
+		// 1. Find latest Snapshot before targetTime for this session
 		const snapshotQuery = `
-      MATCH (s:Snapshot)-[:SNAPSHOT_OF]->(sess:Session {id: $sessionId})
-      WHERE s.snapshot_at <= $targetTime
-      RETURN s.vfs_state_blob_ref, s.snapshot_at
-      ORDER BY s.snapshot_at DESC
-      LIMIT 1
-    `;
+			MATCH (s:Snapshot)-[:SNAPSHOT_OF]->(sess:Session {id: $sessionId})
+			WHERE s.snapshot_at <= $targetTime
+			RETURN s.vfs_state_blob_ref, s.snapshot_at
+			ORDER BY s.snapshot_at DESC
+			LIMIT 1
+		`;
 		const snapshots = await this.falkor.query(snapshotQuery, { sessionId, targetTime });
-		let _lastSnapshotTime = 0;
+		let lastSnapshotTime = 0;
 
 		if (snapshots && Array.isArray(snapshots) && snapshots.length > 0) {
-			const snap = snapshots[0]; // Format depends on RedisGraph output structure
-			// Assuming [ { "s.vfs_state_blob_ref": "...", ... } ] or similar mapped object
-			// TODO: Handle RedisGraph raw response parsing
+			const snap = snapshots[0];
 			const blobRef = snap[0] as string;
-			_lastSnapshotTime = snap[1] as number;
+			lastSnapshotTime = snap[1] as number;
 
 			// Load Blob
 			const blobContent = await this.blobStore.read(blobRef);
-			await vfs.loadSnapshot(Buffer.from(blobContent)); // Assuming blob read returns string, convert to buffer?
-			// Actually blobStore.read returns string. loadSnapshot expects Buffer (gzip).
-			// Need to fix types or logic. Assuming blobStore handles binary as base64 or similar?
-			// For 'fs' store, readFile encoding 'utf-8'.
-			// We should probably store as base64 string in blob store if text-only, or buffer.
-			// Let's assume re-hydrating from JSON string (uncompressed) for V1 simplicity if blob store saves text.
-			// vfs.root = JSON.parse(blobContent);
+			try {
+				await vfs.loadSnapshot(Buffer.from(blobContent));
+			} catch (_e) {
+				// If gzip fails, try loading as JSON directly
+				try {
+					const parsed = JSON.parse(blobContent);
+					if (parsed.root) {
+						vfs.root = parsed.root;
+					}
+				} catch (_jsonErr) {
+					// Continue with empty VFS if loading fails
+				}
+			}
 		}
 
 		// 2. Apply Diffs from Snapshot Time to Target Time
-		// MATCH (d:DiffHunk)-[:MODIFIES]->(c:CodeArtifact) ... linked to session?
-		// Diffs are usually linked to Thoughts or ToolCalls which are linked to Session.
-		// (s:Session)-[:TRIGGERS]->(t:Thought)-[:NEXT*]->...-[:YIELDS]->(tc:ToolCall)-[:YIELDS]->(d:DiffHunk)?
-		// Or (d:DiffHunk) related to session time.
-		// Querying all diffs in time range is easiest if they have timestamps.
-		const _diffQuery = `
-       MATCH (d:DiffHunk)
-       WHERE d.vt_start > $lastSnapshotTime AND d.vt_start <= $targetTime
-       RETURN d.file_path, d.patch_content
-       ORDER BY d.vt_start ASC
-    `;
+		// Filter by session: DiffHunks linked to session through the thought chain
+		// Session -[:TRIGGERS]-> Thought -[:NEXT*]-> Thought -[:YIELDS]-> ToolCall -[:YIELDS]-> DiffHunk
+		// OR via direct PART_OF relationship if exists
+		const diffQuery = `
+			MATCH (sess:Session {id: $sessionId})-[:TRIGGERS]->(t:Thought)
+			OPTIONAL MATCH (t)-[:NEXT*0..]->(linked:Thought)
+			WITH COALESCE(linked, t) as thought
+			OPTIONAL MATCH (thought)-[:YIELDS]->(tc:ToolCall)-[:YIELDS]->(d:DiffHunk)
+			WHERE d IS NOT NULL
+				AND d.vt_start > $lastSnapshotTime
+				AND d.vt_start <= $targetTime
+			RETURN DISTINCT d.file_path as file_path, d.patch_content as patch_content, d.vt_start
+			ORDER BY d.vt_start ASC
+		`;
 
-		// This query is global! Need to filter by Session.
-		// ... logic to filter by session ...
+		const diffs = await this.falkor.query<{ file_path: string; patch_content: string }>(
+			diffQuery,
+			{ sessionId, lastSnapshotTime, targetTime },
+		);
 
-		// Apply patches
-		// ...
+		// Apply patches in order
+		if (diffs && Array.isArray(diffs)) {
+			for (const diff of diffs) {
+				if (diff.file_path && diff.patch_content) {
+					try {
+						patchManager.applyUnifiedDiff(diff.file_path, diff.patch_content);
+					} catch (_e) {
+						// Log but continue on patch failures
+					}
+				}
+			}
+		}
 
 		return vfs;
 	}

@@ -50,7 +50,6 @@ export function handleSessionConnection(ws: WebSocket, sessionId: string) {
             // biome-ignore lint/suspicious/noExplicitAny: FalkorDB response
             const lineageRes: any = await falkor.query(lineageQuery, { sessionId });
             const currentNodeCount = Number(lineageRes?.[0]?.nodeCount || 0);
-            console.log(`[WS Poll] Session ${sessionId}: Node count ${currentNodeCount} (Last: ${lastNodeCount})`);
 
             // 2. Fetch Replay/Timeline count
             const replayQuery = `
@@ -60,26 +59,17 @@ export function handleSessionConnection(ws: WebSocket, sessionId: string) {
              // biome-ignore lint/suspicious/noExplicitAny: FalkorDB response
             const replayRes: any = await falkor.query(replayQuery, { sessionId });
             const currentEventCount = Number(replayRes?.[0]?.eventCount || 0);
-            console.log(`[WS Poll] Session ${sessionId}: Event count ${currentEventCount} (Last: ${lastEventCount})`);
 
             // If changed, fetch full data and push
             // Note: This is inefficient for large graphs, but fine for prototype/small sessions.
             if (currentNodeCount !== lastNodeCount) {
-                 // Fetch full lineage
-                 // We can reuse the logic or just signal client to refetch?
-                 // The useSessionStream hook expects data in the message.
-                 // Let's fetch full data.
-                 console.log(`[WS Poll] Fetching full lineage for ${sessionId}`);
                  const fullLineageData = await getFullLineage(sessionId);
-                 console.log(`[WS Poll] Sending lineage data: ${fullLineageData.nodes.length} nodes, ${fullLineageData.links.length} links`);
                  ws.send(JSON.stringify({ type: 'lineage', data: fullLineageData }));
                  lastNodeCount = currentNodeCount;
             }
 
             if (currentEventCount !== lastEventCount) {
-                console.log(`[WS Poll] Fetching full timeline for ${sessionId}`);
                 const fullReplayData = await getFullTimeline(sessionId);
-                console.log(`[WS Poll] Sending replay data: ${fullReplayData.timeline.length} items`);
                 ws.send(JSON.stringify({ type: 'replay', data: fullReplayData }));
                 lastEventCount = currentEventCount;
             }

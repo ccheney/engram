@@ -105,18 +105,40 @@ export interface ReasoningProperties extends Partial<BitemporalProperties> {
 export interface FileTouchProperties extends Partial<BitemporalProperties> {
 	id: string;
 	file_path: string;
-	action: string;
+	action: string; // "read" | "edit" | "create" | "delete" | "list" | "search"
+	tool_call_id?: string; // Link to parent ToolCall for lineage
+	sequence_index?: number; // Order within turn's tool calls
 	diff_preview?: string;
 	lines_added?: number;
 	lines_removed?: number;
+	match_count?: number; // For grep/glob operations
+	matched_files?: string[]; // For glob results
 	[key: string]: unknown;
 }
 
 export interface ToolCallProperties extends Partial<BitemporalProperties> {
 	id: string;
-	name: string;
-	arguments?: string;
-	result?: string;
+	call_id: string; // Provider ID (e.g. "toolu_01ABC...")
+	tool_name: string; // Original tool name
+	tool_type: string; // Categorized type (file_read, bash_exec, etc.)
+	arguments_json: string; // Full JSON arguments
+	arguments_preview?: string; // Truncated for display
+	status: string; // "pending" | "success" | "error" | "cancelled"
+	error_message?: string;
+	sequence_index: number; // Position within Turn's content blocks
+	reasoning_sequence?: number; // Index of triggering Reasoning block
+	[key: string]: unknown;
+}
+
+export interface ObservationProperties extends Partial<BitemporalProperties> {
+	id: string;
+	tool_call_id: string; // Reference to parent ToolCall
+	content: string; // Full result content
+	content_preview?: string; // Truncated for display
+	content_hash?: string; // SHA256 for deduplication
+	is_error: boolean;
+	error_type?: string; // e.g., "FileNotFound", "PermissionDenied"
+	execution_time_ms?: number;
 	[key: string]: unknown;
 }
 
@@ -130,6 +152,7 @@ export type TurnNode = FalkorNode<TurnProperties>;
 export type ReasoningNode = FalkorNode<ReasoningProperties>;
 export type FileTouchNode = FalkorNode<FileTouchProperties>;
 export type ToolCallNode = FalkorNode<ToolCallProperties>;
+export type ObservationNode = FalkorNode<ObservationProperties>;
 
 // =============================================================================
 // Query Result Types

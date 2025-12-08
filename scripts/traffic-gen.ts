@@ -89,7 +89,7 @@ async function main() {
 		await new Promise((r) => setTimeout(r, 800));
 	}
 
-	// Tool calls (creates FileTouch nodes)
+	// Tool calls (creates ToolCall nodes with file_path embedded)
 	console.log("[3] Tool calls (file operations)...");
 
 	// Glob tool call
@@ -319,7 +319,7 @@ async function main() {
 	console.log("   ✅ Turn 3 complete");
 
 	console.log("\n\n✅ Traffic generation complete!");
-	console.log(`\n📊 Generated: 3 turns, multiple reasoning blocks, multiple file touches`);
+	console.log(`\n📊 Generated: 3 turns, multiple reasoning blocks, multiple tool calls`);
 	console.log(`🔗 View at: http://localhost:5000/session/${sessionId}\n`);
 
 	await producer.disconnect();

@@ -34,7 +34,8 @@ export const InvokesEdgeSchema = BaseEdgeSchema.extend({
 	type: z.literal("INVOKES"),
 });
 
-// Turn -[TOUCHES]-> FileTouch
+// ToolCall -[TOUCHES]-> FileTouch (captures file operations from tool calls)
+// NOTE: Previously Turn -[TOUCHES]-> FileTouch, now routed through ToolCall for lineage
 export const TouchesEdgeSchema = BaseEdgeSchema.extend({
 	type: z.literal("TOUCHES"),
 });
@@ -77,13 +78,18 @@ export const SameAsEdgeSchema = BaseEdgeSchema.extend({
 });
 
 // =============================================================================
-// DEPRECATED: Legacy edges (kept for migration)
+// Reasoning → ToolCall causal link
 // =============================================================================
 
-// DEPRECATED: Use HAS_TURN instead
+// Reasoning -[TRIGGERS]-> ToolCall (causal link from reasoning to tool invocation)
+// This captures WHY a tool was called - the preceding thinking block that led to it
 export const TriggersEdgeSchema = BaseEdgeSchema.extend({
 	type: z.literal("TRIGGERS"),
 });
+
+// =============================================================================
+// DEPRECATED: Legacy edges (kept for migration)
+// =============================================================================
 
 // DEPRECATED: Use CONTAINS/INVOKES instead
 export const MotivatedByEdgeSchema = BaseEdgeSchema.extend({
@@ -101,7 +107,10 @@ export const EdgeTypes = {
 	// Turn hierarchy
 	CONTAINS: "CONTAINS",
 	INVOKES: "INVOKES",
-	TOUCHES: "TOUCHES",
+
+	// Reasoning → ToolCall → FileTouch lineage
+	TRIGGERS: "TRIGGERS", // Reasoning -> ToolCall
+	TOUCHES: "TOUCHES", // ToolCall -> FileTouch
 
 	// Tool relationships
 	YIELDS: "YIELDS",
@@ -115,7 +124,6 @@ export const EdgeTypes = {
 	SAME_AS: "SAME_AS",
 
 	// Deprecated
-	TRIGGERS: "TRIGGERS",
 	MOTIVATED_BY: "MOTIVATED_BY",
 } as const;
 

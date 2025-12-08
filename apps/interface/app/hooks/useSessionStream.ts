@@ -137,7 +137,10 @@ export function useSessionStream({
 							// Real-time incremental update from Redis Pub/Sub
 							// For now, request a full refresh to get latest data
 							// This could be optimized to do incremental updates client-side
-							if (message.data?.type === "node_created") {
+							if (
+								message.data?.type === "node_created" ||
+								message.data?.type === "graph_node_created"
+							) {
 								// New node was created - request full refresh
 								ws.send(JSON.stringify({ type: "refresh" }));
 							} else if (message.lineage) {

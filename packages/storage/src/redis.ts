@@ -13,6 +13,7 @@ export interface SessionUpdate {
 		| "lineage"
 		| "timeline"
 		| "node_created"
+		| "graph_node_created"
 		| "session_created"
 		| "session_updated"
 		| "session_closed";

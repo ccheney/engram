@@ -5,7 +5,7 @@ import { createRedisPublisher } from "@engram/storage/redis";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { TurnAggregator } from "./turn-aggregator";
+import { TurnAggregator, type NodeCreatedCallback } from "./turn-aggregator";
 
 // Initialize Logger (stderr for MCP safety)
 const logger = createNodeLogger(
@@ -23,7 +23,27 @@ const falkor = createFalkorClient();
 const kafka = createKafkaClient("memory-service");
 const redis = createRedisPublisher();
 const pruner = new GraphPruner(falkor);
-const turnAggregator = new TurnAggregator(falkor, logger);
+
+// Callback for real-time WebSocket updates when TurnAggregator creates graph nodes
+const onNodeCreated: NodeCreatedCallback = async (sessionId, node) => {
+	try {
+		await redis.publishSessionUpdate(sessionId, {
+			type: "graph_node_created",
+			data: {
+				id: node.id,
+				nodeType: node.type,
+				label: node.label,
+				properties: node.properties,
+				timestamp: new Date().toISOString(),
+			},
+		});
+		logger.debug({ sessionId, nodeId: node.id, nodeType: node.type }, "Published graph node event");
+	} catch (e) {
+		logger.error({ err: e, sessionId, nodeId: node.id }, "Failed to publish graph node event");
+	}
+};
+
+const turnAggregator = new TurnAggregator(falkor, logger, onNodeCreated);
 
 // Pruning Job
 const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours

@@ -1,6 +1,62 @@
 import { z } from "zod";
 import { BaseNodeSchema } from "./base";
 
+// =============================================================================
+// ToolCallType Enum - Categorizes all tool call types
+// =============================================================================
+export const ToolCallType = {
+	// File operations
+	FILE_READ: "file_read",
+	FILE_WRITE: "file_write",
+	FILE_EDIT: "file_edit",
+	FILE_MULTI_EDIT: "file_multi_edit",
+	FILE_GLOB: "file_glob",
+	FILE_GREP: "file_grep",
+	FILE_LIST: "file_list",
+
+	// Execution
+	BASH_EXEC: "bash_exec",
+	NOTEBOOK_READ: "notebook_read",
+	NOTEBOOK_EDIT: "notebook_edit",
+
+	// Web
+	WEB_FETCH: "web_fetch",
+	WEB_SEARCH: "web_search",
+
+	// Agent
+	AGENT_SPAWN: "agent_spawn",
+	TODO_READ: "todo_read",
+	TODO_WRITE: "todo_write",
+
+	// MCP (Model Context Protocol)
+	MCP: "mcp",
+
+	// Fallback
+	UNKNOWN: "unknown",
+} as const;
+
+export type ToolCallTypeValue = (typeof ToolCallType)[keyof typeof ToolCallType];
+
+export const ToolCallTypeEnum = z.enum([
+	"file_read",
+	"file_write",
+	"file_edit",
+	"file_multi_edit",
+	"file_glob",
+	"file_grep",
+	"file_list",
+	"bash_exec",
+	"notebook_read",
+	"notebook_edit",
+	"web_fetch",
+	"web_search",
+	"agent_spawn",
+	"todo_read",
+	"todo_write",
+	"mcp",
+	"unknown",
+]);
+
 export const SessionNodeSchema = BaseNodeSchema.extend({
 	labels: z.literal(["Session"]),
 	title: z.string().optional(),
@@ -94,26 +150,56 @@ export type ReasoningNode = z.infer<typeof ReasoningNodeSchema>;
 // =============================================================================
 // FileTouchNode: A file operation within a turn
 // Enables "what happened to this file?" queries
+// Now linked through ToolCall for full lineage: Reasoning -> ToolCall -> FileTouch
 // =============================================================================
 export const FileTouchNodeSchema = BaseNodeSchema.extend({
 	labels: z.literal(["FileTouch"]),
 
 	file_path: z.string(), // Indexed path, e.g., "src/auth/login.ts"
-	action: z.enum(["read", "edit", "create", "delete"]),
+	action: z.enum(["read", "edit", "create", "delete", "list", "search"]),
+
+	// Link to parent ToolCall for lineage tracing
+	tool_call_id: z.string().optional(), // UUID of the ToolCall that created this
+
+	// Position tracking within turn
+	sequence_index: z.number().int().optional(), // Order within turn's tool calls
 
 	// Optional diff summary for edits
 	diff_preview: z.string().max(500).optional(), // Brief description of changes
 	lines_added: z.number().int().optional(),
 	lines_removed: z.number().int().optional(),
+
+	// Search results (for grep/glob operations)
+	match_count: z.number().int().optional(),
+	matched_files: z.array(z.string()).optional(), // For glob results
 });
 export type FileTouchNode = z.infer<typeof FileTouchNodeSchema>;
 
+// =============================================================================
+// ToolCallNode: Captures every tool invocation
+// Creates causal lineage: Reasoning -[TRIGGERS]-> ToolCall -[TOUCHES]-> FileTouch
+// =============================================================================
 export const ToolCallNodeSchema = BaseNodeSchema.extend({
 	labels: z.literal(["ToolCall"]),
-	tool_name: z.string(),
-	call_id: z.string(), // Provider ID (e.g. call_abc123)
-	arguments_json: z.string(), // The full JSON args
-	status: z.enum(["pending", "success", "error"]),
+
+	// Identity
+	call_id: z.string(), // Provider ID (e.g. "toolu_01ABC...")
+
+	// Tool info
+	tool_name: z.string(), // Original tool name (e.g., "Read", "Bash", "mcp__chrome__click")
+	tool_type: ToolCallTypeEnum.default("unknown"), // Categorized type
+
+	// Arguments
+	arguments_json: z.string(), // Full JSON arguments
+	arguments_preview: z.string().max(500).optional(), // Truncated for display
+
+	// Execution state
+	status: z.enum(["pending", "success", "error", "cancelled"]),
+	error_message: z.string().optional(),
+
+	// Sequence tracking
+	sequence_index: z.number().int(), // Position within Turn's content blocks
+	reasoning_sequence: z.number().int().optional(), // Index of triggering Reasoning block
 });
 export type ToolCallNode = z.infer<typeof ToolCallNodeSchema>;
 
@@ -135,11 +221,27 @@ export const DiffHunkNodeSchema = BaseNodeSchema.extend({
 });
 export type DiffHunkNode = z.infer<typeof DiffHunkNodeSchema>;
 
+// =============================================================================
+// ObservationNode: Tool execution results
+// Links back to ToolCall via tool_call_id
+// =============================================================================
 export const ObservationNodeSchema = BaseNodeSchema.extend({
 	labels: z.literal(["Observation"]),
-	tool_call_id: z.string(), // Links back to ToolCall
-	content: z.string(), // Output
+
+	// Identity
+	tool_call_id: z.string(), // Reference to parent ToolCall
+
+	// Result content
+	content: z.string(), // Full result content
+	content_preview: z.string().max(1000).optional(), // Truncated for display
+	content_hash: z.string().optional(), // SHA256 for deduplication
+
+	// Status
 	is_error: z.boolean().default(false),
+	error_type: z.string().optional(), // e.g., "FileNotFound", "PermissionDenied"
+
+	// Metadata
+	execution_time_ms: z.number().int().optional(),
 });
 export type ObservationNode = z.infer<typeof ObservationNodeSchema>;
 

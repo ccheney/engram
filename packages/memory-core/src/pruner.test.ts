@@ -6,21 +6,64 @@ describe("GraphPruner", () => {
 	let mockFalkorClient: { query: ReturnType<typeof mock> };
 
 	beforeEach(() => {
-		mockFalkorQuery = mock(async () => [[5]]);
+		mockFalkorQuery = mock(async () => []);
 		mockFalkorClient = { query: mockFalkorQuery };
 	});
 
-	it("should prune history based on retention without archive", async () => {
+	it("should prune history in batches without archive", async () => {
+		// First call: fetch node IDs returns 2 nodes
+		// Second call: delete returns 2
+		// Third call: fetch returns empty (no more)
+		mockFalkorQuery
+			.mockResolvedValueOnce([{ nodeId: 1 }, { nodeId: 2 }])
+			.mockResolvedValueOnce([[2]])
+			.mockResolvedValueOnce([]);
+
 		const pruner = new GraphPruner(mockFalkorClient as any);
 
-		const result = await pruner.pruneHistory(1000);
+		const result = await pruner.pruneHistory({ retentionMs: 1000 });
 
-		expect(mockFalkorQuery).toHaveBeenCalled();
-		const call = mockFalkorQuery.mock.calls[mockFalkorQuery.mock.calls.length - 1];
-		expect(call[0]).toContain("DELETE n");
-		expect(result.deleted).toBe(5);
+		expect(result.deleted).toBe(2);
 		expect(result.archived).toBe(0);
+		expect(result.batches).toBe(1);
 		expect(result.archiveUri).toBeUndefined();
+	});
+
+	it("should process multiple batches", async () => {
+		// First batch: 2 nodes (full batch size)
+		// Second batch: 1 node (partial, signals end)
+		mockFalkorQuery
+			.mockResolvedValueOnce([{ nodeId: 1 }, { nodeId: 2 }]) // fetch batch 1
+			.mockResolvedValueOnce([[2]]) // delete batch 1
+			.mockResolvedValueOnce([{ nodeId: 3 }]) // fetch batch 2 (partial)
+			.mockResolvedValueOnce([[1]]); // delete batch 2
+
+		const pruner = new GraphPruner(mockFalkorClient as any);
+
+		const result = await pruner.pruneHistory({ retentionMs: 1000, batchSize: 2 });
+
+		expect(result.deleted).toBe(3);
+		expect(result.batches).toBe(2);
+	});
+
+	it("should respect maxBatches limit", async () => {
+		// Setup infinite supply of nodes
+		mockFalkorQuery
+			.mockResolvedValueOnce([{ nodeId: 1 }, { nodeId: 2 }])
+			.mockResolvedValueOnce([[2]])
+			.mockResolvedValueOnce([{ nodeId: 3 }, { nodeId: 4 }])
+			.mockResolvedValueOnce([[2]]);
+
+		const pruner = new GraphPruner(mockFalkorClient as any);
+
+		const result = await pruner.pruneHistory({
+			retentionMs: 1000,
+			batchSize: 2,
+			maxBatches: 1,
+		});
+
+		expect(result.batches).toBe(1);
+		expect(result.deleted).toBe(2);
 	});
 
 	it("should archive nodes before pruning when archiveStore is provided", async () => {
@@ -29,21 +72,23 @@ describe("GraphPruner", () => {
 			read: mock(async () => ""),
 		};
 
-		// First call: archive query returns nodes
-		// Second call: delete query returns count
+		// Archive query returns nodes, then fetch/delete batches
 		mockFalkorQuery
 			.mockResolvedValueOnce([
 				{ labels: ["Thought"], props: { id: "t1", content: "old thought" }, nodeId: 1 },
 				{ labels: ["Thought"], props: { id: "t2", content: "another old thought" }, nodeId: 2 },
 			])
-			.mockResolvedValueOnce([[2]]);
+			.mockResolvedValueOnce([{ nodeId: 1 }, { nodeId: 2 }]) // fetch batch
+			.mockResolvedValueOnce([[2]]) // delete batch
+			.mockResolvedValueOnce([]); // no more
 
 		const pruner = new GraphPruner(mockFalkorClient as any, mockBlobStore as any);
 
-		const result = await pruner.pruneHistory(1000);
+		const result = await pruner.pruneHistory({ retentionMs: 1000 });
 
 		expect(result.archived).toBe(2);
 		expect(result.deleted).toBe(2);
+		expect(result.batches).toBe(1);
 		expect(result.archiveUri).toBe("file:///data/blobs/abc123");
 
 		// Verify blob store was called with JSONL content
@@ -66,15 +111,16 @@ describe("GraphPruner", () => {
 			read: mock(async () => ""),
 		};
 
-		// Archive query returns empty, delete query returns 0
-		mockFalkorQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([[0]]);
+		// Archive query returns empty, fetch returns empty
+		mockFalkorQuery.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
 		const pruner = new GraphPruner(mockFalkorClient as any, mockBlobStore as any);
 
-		const result = await pruner.pruneHistory(1000);
+		const result = await pruner.pruneHistory({ retentionMs: 1000 });
 
 		expect(result.archived).toBe(0);
 		expect(result.deleted).toBe(0);
+		expect(result.batches).toBe(0);
 		expect(result.archiveUri).toBeUndefined();
 
 		// Blob store should not be called if no nodes to archive

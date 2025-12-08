@@ -5,7 +5,20 @@ interface PruneResult {
 	archived: number;
 	deleted: number;
 	archiveUri?: string;
+	batches: number;
 }
+
+interface PruneOptions {
+	/** Milliseconds to keep history (default: 30 days) */
+	retentionMs?: number;
+	/** Number of nodes to delete per batch (default: 1000) */
+	batchSize?: number;
+	/** Maximum batches to process (default: no limit) */
+	maxBatches?: number;
+}
+
+const DEFAULT_BATCH_SIZE = 1000;
+const DEFAULT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export class GraphPruner {
 	constructor(
@@ -17,11 +30,18 @@ export class GraphPruner {
 	 * Prune old transaction history.
 	 * Optionally archives nodes to blob storage before deletion.
 	 * Removes nodes where transaction time ended before the threshold.
+	 * Uses batched deletion to avoid Redis timeouts on large graphs.
 	 *
-	 * @param retentionMs - Milliseconds to keep history (default: 30 days)
-	 * @returns PruneResult with counts and optional archive URI
+	 * @param options - Pruning options
+	 * @returns PruneResult with counts, archive URI, and batch info
 	 */
-	async pruneHistory(retentionMs = 30 * 24 * 60 * 60 * 1000): Promise<PruneResult> {
+	async pruneHistory(options: PruneOptions = {}): Promise<PruneResult> {
+		const {
+			retentionMs = DEFAULT_RETENTION_MS,
+			batchSize = DEFAULT_BATCH_SIZE,
+			maxBatches,
+		} = options;
+
 		const threshold = now() - retentionMs;
 
 		// 1. Archive nodes before deletion (if archive store is configured)
@@ -34,27 +54,60 @@ export class GraphPruner {
 			archiveUri = archiveResult.uri;
 		}
 
-		// 2. Delete old nodes
-		// Note: In FalkorDB/RedisGraph, bulk delete might be slow.
-		// We should limit it or do it in batches.
-		// For V1, a simple query is sufficient.
-		const deleteQuery = `
-			MATCH (n)
-			WHERE n.tt_end < ${threshold}
-			DELETE n
-			RETURN count(n) as deleted_count
-		`;
+		// 2. Delete old nodes in batches to avoid Redis timeouts
+		let totalDeleted = 0;
+		let batchesProcessed = 0;
+		let hasMore = true;
 
-		const result = await this.client.query(deleteQuery);
+		while (hasMore) {
+			// Check if we've hit max batches limit
+			if (maxBatches !== undefined && batchesProcessed >= maxBatches) {
+				break;
+			}
 
-		// Parse result (assuming standard RedisGraph response structure)
-		const firstRow = result?.[0];
-		const deletedCount = (firstRow?.deleted_count as number) ?? (firstRow?.[0] as number) ?? 0;
+			// Fetch a batch of node IDs to delete
+			const fetchQuery = `
+				MATCH (n)
+				WHERE n.tt_end < ${threshold}
+				RETURN id(n) as nodeId
+				LIMIT ${batchSize}
+			`;
+
+			const nodeRows = await this.client.query<{ nodeId: number }>(fetchQuery);
+
+			if (!nodeRows || nodeRows.length === 0) {
+				hasMore = false;
+				break;
+			}
+
+			// Delete this batch by node IDs
+			const nodeIds = nodeRows.map((row) => row.nodeId);
+			const deleteQuery = `
+				MATCH (n)
+				WHERE id(n) IN [${nodeIds.join(",")}]
+				DELETE n
+				RETURN count(n) as deleted_count
+			`;
+
+			const result = await this.client.query(deleteQuery);
+			const firstRow = result?.[0];
+			const batchDeleted =
+				(firstRow?.deleted_count as number) ?? (firstRow?.[0] as number) ?? 0;
+
+			totalDeleted += batchDeleted;
+			batchesProcessed++;
+
+			// If we got fewer than batch size, we're done
+			if (nodeRows.length < batchSize) {
+				hasMore = false;
+			}
+		}
 
 		return {
 			archived: archivedCount,
-			deleted: deletedCount,
+			deleted: totalDeleted,
 			archiveUri,
+			batches: batchesProcessed,
 		};
 	}
 

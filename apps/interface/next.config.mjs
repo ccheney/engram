@@ -8,6 +8,7 @@ const nextConfig = {
 		"pino-pretty",
 		"thread-stream",
 		"sonic-boom",
+		"@confluentinc/kafka-javascript",
 	],
 };
 

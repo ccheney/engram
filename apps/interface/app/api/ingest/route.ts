@@ -3,7 +3,7 @@ import { UserRole, withRole } from "@lib/rbac";
 import { withTelemetry } from "@lib/telemetry";
 import { validate } from "@lib/validate";
 import { RawStreamEventSchema } from "@engram/events";
-import { createKafkaClient } from "@engram/storage";
+import { createKafkaClient } from "@engram/storage/kafka";
 import type { z } from "zod";
 
 // Initialize Kafka

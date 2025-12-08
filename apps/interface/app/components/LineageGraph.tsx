@@ -36,8 +36,9 @@ interface LineageGraphProps {
 const nodeWidth = 160;
 const nodeHeight = 50;
 
-// Context for highlighted node to avoid prop drilling and re-renders
-const HighlightContext = createContext<string | null>(null);
+// Context for highlighted nodes to avoid prop drilling and re-renders
+// Now holds a Set of IDs to support highlighting the entire parent chain
+const HighlightContext = createContext<Set<string>>(new Set());
 
 // Horizontal tree layout: Session -> Turns -> Reasoning/FileTouch (left to right)
 const getRadialLayout = (nodes: Node[], edges: Edge[], centerX: number, centerY: number) => {
@@ -386,8 +387,8 @@ const NeuralNode = React.memo(function NeuralNode({ data, selected, id }: NodePr
 	const nodeType = (data.type as string)?.toLowerCase() || "default";
 	const isSession = nodeType === "session";
 	const config = nodeTypeConfig[nodeType as keyof typeof nodeTypeConfig] || nodeTypeConfig.default;
-	const highlightedNodeId = useContext(HighlightContext);
-	const isHighlighted = highlightedNodeId === id;
+	const highlightedNodeIds = useContext(HighlightContext);
+	const isHighlighted = highlightedNodeIds.has(id);
 	const [isHovered, setIsHovered] = useState(false);
 
 	// Truncate label for display
@@ -873,6 +874,37 @@ export function LineageGraph({
 		return `${nodeIds}|${linkKeys}`;
 	}, [data]);
 
+	// Build parent lookup map from edges (child -> parent)
+	const parentMap = useMemo(() => {
+		const map = new Map<string, string>();
+		if (data?.links) {
+			for (const link of data.links) {
+				// Each edge goes from parent (source) to child (target)
+				map.set(link.target, link.source);
+			}
+		}
+		return map;
+	}, [data?.links]);
+
+	// Compute the direct parent chain for the highlighted node
+	const highlightedNodeIds = useMemo(() => {
+		const ids = new Set<string>();
+		if (!highlightedNodeId) return ids;
+
+		// Add the highlighted node itself
+		ids.add(highlightedNodeId);
+
+		// Walk up the parent chain (direct ancestors only)
+		let current = highlightedNodeId;
+		while (parentMap.has(current)) {
+			const parent = parentMap.get(current)!;
+			ids.add(parent);
+			current = parent;
+		}
+
+		return ids;
+	}, [highlightedNodeId, parentMap]);
+
 	// Initialize nodes and edges only when actual data content changes
 	useEffect(() => {
 		// Empty data case
@@ -1100,7 +1132,7 @@ export function LineageGraph({
             `}</style>
 
 			<div style={{ width: "100%", height: "100%", position: "absolute", top: 0, left: 0 }}>
-				<HighlightContext.Provider value={highlightedNodeId ?? null}>
+				<HighlightContext.Provider value={highlightedNodeIds}>
 					<ReactFlow
 						nodes={nodes}
 						edges={edges}

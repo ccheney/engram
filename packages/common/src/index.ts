@@ -101,31 +101,9 @@ export {
 } from "./constants";
 
 // =============================================================================
-// Testing (re-exported for convenience, prefer importing from "./testing")
+// Testing
 // =============================================================================
-
-export {
-	// Mock factories
-	createTestGraphClient,
-	createTestKafkaClient,
-	createTestRedisPublisher,
-	createTestBlobStore,
-	createTestProducer,
-	createTestConsumer,
-	createTestKafkaMessage,
-	// Fixture factories
-	createTestSession,
-	createTestTurn,
-	createTestToolCall,
-	createTestReasoning,
-	createTestFileTouch,
-	createTestObservation,
-	// Utilities
-	createTestId,
-	createTestHash,
-	createTestBitemporalProps,
-	wait,
-	createDeferred,
-	expectToReject,
-	spyOnConsole,
-} from "./testing";
+// NOTE: Testing utilities are NOT exported from the main entry point to avoid
+// pulling vitest into production code. Import testing utilities from:
+//   import { createTestGraphClient, ... } from "@engram/common/testing";
+// =============================================================================

@@ -1,10 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { EngramLogo } from "./components/EngramLogo";
+import { SearchInput } from "./components/SearchInput";
+import { SearchResults } from "./components/SearchResults";
 import { SessionBrowser } from "./components/SessionBrowser";
+import { useSearch } from "./hooks/useSearch";
 
 // Dynamically import Three.js background to avoid SSR issues
 const NeuralBackground = dynamic(
@@ -58,134 +60,19 @@ function Particles() {
 	);
 }
 
-// Animated neural network decoration
-function _NeuralDecoration() {
-	return (
-		<svg
-			style={{
-				position: "absolute",
-				top: 0,
-				left: 0,
-				width: "100%",
-				height: "100%",
-				pointerEvents: "none",
-				opacity: 0.2,
-			}}
-			viewBox="0 0 800 600"
-			preserveAspectRatio="xMidYMid slice"
-		>
-			<defs>
-				<linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-					<stop offset="0%" stopColor="rgb(251, 191, 36)" stopOpacity="0.6" />
-					<stop offset="100%" stopColor="rgb(226, 232, 240)" stopOpacity="0.4" />
-				</linearGradient>
-				<filter id="glow">
-					<feGaussianBlur stdDeviation="2" result="coloredBlur" />
-					<feMerge>
-						<feMergeNode in="coloredBlur" />
-						<feMergeNode in="SourceGraphic" />
-					</feMerge>
-				</filter>
-			</defs>
-
-			{/* Neural connection lines */}
-			<g stroke="url(#lineGradient)" strokeWidth="1" fill="none" filter="url(#glow)">
-				<path d="M 100,100 Q 200,50 300,150" className="animate-pulse" />
-				<path
-					d="M 300,150 Q 400,200 500,100"
-					style={{ animationDelay: "0.5s" }}
-					className="animate-pulse"
-				/>
-				<path
-					d="M 500,100 Q 600,50 700,150"
-					style={{ animationDelay: "1s" }}
-					className="animate-pulse"
-				/>
-				<path
-					d="M 150,400 Q 250,350 350,450"
-					style={{ animationDelay: "0.3s" }}
-					className="animate-pulse"
-				/>
-				<path
-					d="M 450,350 Q 550,300 650,400"
-					style={{ animationDelay: "0.7s" }}
-					className="animate-pulse"
-				/>
-			</g>
-
-			{/* Neural nodes */}
-			<g fill="rgb(251, 191, 36)" filter="url(#glow)">
-				<circle cx="100" cy="100" r="4" className="animate-pulse" />
-				<circle
-					cx="300"
-					cy="150"
-					r="5"
-					style={{ animationDelay: "0.2s" }}
-					className="animate-pulse"
-				/>
-				<circle
-					cx="500"
-					cy="100"
-					r="4"
-					style={{ animationDelay: "0.4s" }}
-					className="animate-pulse"
-				/>
-				<circle
-					cx="700"
-					cy="150"
-					r="5"
-					style={{ animationDelay: "0.6s" }}
-					className="animate-pulse"
-				/>
-				<circle
-					cx="150"
-					cy="400"
-					r="4"
-					style={{ animationDelay: "0.1s" }}
-					className="animate-pulse"
-				/>
-				<circle
-					cx="350"
-					cy="450"
-					r="5"
-					style={{ animationDelay: "0.3s" }}
-					className="animate-pulse"
-				/>
-				<circle
-					cx="450"
-					cy="350"
-					r="4"
-					style={{ animationDelay: "0.5s" }}
-					className="animate-pulse"
-				/>
-				<circle
-					cx="650"
-					cy="400"
-					r="5"
-					style={{ animationDelay: "0.7s" }}
-					className="animate-pulse"
-				/>
-			</g>
-		</svg>
-	);
-}
-
 export default function HomePage() {
-	const [sessionId, setSessionId] = useState("");
-	const [isFocused, setIsFocused] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
 	const [mounted, setMounted] = useState(false);
-	const router = useRouter();
+
+	// Use the search hook
+	const { results, isLoading, error, mode, detectedUUID, isDebouncing } = useSearch(searchQuery);
 
 	useEffect(() => {
 		setMounted(true);
 	}, []);
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (sessionId) {
-			router.push(`/session/${sessionId}`);
-		}
-	};
+	// Show search results when in search mode, otherwise show session browser
+	const showSearchResults = mode === "search" && searchQuery.trim().length >= 2;
 
 	// Header/Footer heights for safe area calculation
 	const HEADER_HEIGHT = 140;
@@ -200,8 +87,8 @@ export default function HomePage() {
 				display: "flex",
 				flexDirection: "column",
 				alignItems: "center",
-				paddingTop: `${HEADER_HEIGHT + 24}px`, // Safe area: header height + extra padding
-				paddingBottom: `${FOOTER_HEIGHT + 24}px`, // Safe area: footer height + extra padding
+				paddingTop: `${HEADER_HEIGHT + 24}px`,
+				paddingBottom: `${FOOTER_HEIGHT + 24}px`,
 			}}
 		>
 			{/* Background decorations - fixed to cover viewport including header */}
@@ -224,7 +111,6 @@ export default function HomePage() {
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "center",
-					// Glassmorphism - balanced translucency
 					background: `linear-gradient(
 						180deg,
 						rgba(8, 10, 15, 0.35) 0%,
@@ -232,9 +118,7 @@ export default function HomePage() {
 					)`,
 					backdropFilter: "blur(8px) saturate(150%)",
 					WebkitBackdropFilter: "blur(8px) saturate(150%)",
-					// Bottom border with cyan glow
 					borderBottom: "1px solid rgba(0, 245, 212, 0.15)",
-					// Glass shadow with subtle inner light
 					boxShadow:
 						"inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.1), 0 4px 30px rgba(0,0,0,0.3)",
 				}}
@@ -322,66 +206,30 @@ export default function HomePage() {
 						transform: mounted ? "translateY(0)" : "translateY(2rem)",
 					}}
 				>
-					{/* UUID input - at top */}
-					<form onSubmit={handleSubmit} style={{ maxWidth: "480px", margin: "0 auto 2rem auto" }}>
-						<div
-							style={{
-								display: "flex",
-								gap: "8px",
-							}}
-						>
-							<input
-								id="sessionId"
-								type="text"
-								value={sessionId}
-								onChange={(e) => setSessionId(e.target.value)}
-								onFocus={() => setIsFocused(true)}
-								onBlur={() => setIsFocused(false)}
-								placeholder="Enter session UUID..."
-								autoComplete="off"
-								spellCheck={false}
-								style={{
-									flex: 1,
-									padding: "12px 16px",
-									fontSize: "13px",
-									fontFamily: "JetBrains Mono, monospace",
-									color: "rgb(203, 213, 225)",
-									backgroundColor: "rgba(15, 20, 30, 0.7)",
-									border: isFocused
-										? "1px solid rgba(251, 191, 36, 0.4)"
-										: "1px solid rgba(100, 116, 139, 0.25)",
-									borderRadius: "8px",
-									outline: "none",
-									transition: "all 0.2s ease",
-									boxShadow: isFocused ? "0 0 12px rgba(251, 191, 36, 0.15)" : "none",
-								}}
-							/>
-							<button
-								type="submit"
-								disabled={!sessionId}
-								style={{
-									padding: "12px 20px",
-									fontSize: "11px",
-									fontFamily: "JetBrains Mono, monospace",
-									fontWeight: 600,
-									letterSpacing: "0.05em",
-									color: sessionId ? "rgb(251, 191, 36)" : "rgb(71, 85, 105)",
-									backgroundColor: sessionId ? "rgba(251, 191, 36, 0.1)" : "rgba(15, 20, 30, 0.6)",
-									border: sessionId
-										? "1px solid rgba(251, 191, 36, 0.4)"
-										: "1px solid rgba(100, 116, 139, 0.15)",
-									borderRadius: "8px",
-									cursor: sessionId ? "pointer" : "not-allowed",
-									transition: "all 0.2s ease",
-								}}
-							>
-								GO
-							</button>
-						</div>
-					</form>
+					{/* Unified Search Input */}
+					<div style={{ marginBottom: "2rem" }}>
+						<SearchInput
+							value={searchQuery}
+							onChange={setSearchQuery}
+							mode={mode}
+							detectedUUID={detectedUUID}
+							isLoading={isLoading}
+							isDebouncing={isDebouncing}
+							resultCount={results.length}
+						/>
+					</div>
 
-					{/* Session Browser */}
-					<SessionBrowser />
+					{/* Conditional content: Search Results or Session Browser */}
+					{showSearchResults ? (
+						<SearchResults
+							results={results}
+							isLoading={isLoading}
+							error={error}
+							query={searchQuery}
+						/>
+					) : (
+						<SessionBrowser />
+					)}
 				</div>
 			</div>
 
@@ -401,11 +249,8 @@ export default function HomePage() {
 					fontSize: "11px",
 					fontFamily: "JetBrains Mono, monospace",
 					color: "rgb(100, 116, 139)",
-					// Solid background to prevent content showing through
 					backgroundColor: "rgb(8, 10, 15)",
-					// Top border with gradient
 					borderTop: "1px solid rgba(100, 116, 139, 0.15)",
-					// Subtle inner glow
 					boxShadow: "inset 0 1px 0 rgba(255,255,255,0.02), 0 -4px 20px rgba(0,0,0,0.5)",
 				}}
 			>
@@ -445,15 +290,15 @@ export default function HomePage() {
 
 			{/* Keyframes for animations */}
 			<style jsx>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; transform: scale(1); }
-                    50% { opacity: 0.6; transform: scale(0.9); }
-                }
-            `}</style>
+				@keyframes spin {
+					from { transform: rotate(0deg); }
+					to { transform: rotate(360deg); }
+				}
+				@keyframes pulse {
+					0%, 100% { opacity: 1; transform: scale(1); }
+					50% { opacity: 0.6; transform: scale(0.9); }
+				}
+			`}</style>
 		</div>
 	);
 }

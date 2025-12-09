@@ -1,8 +1,43 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { ParsedStreamEvent } from "@engram/events";
 import type { Logger } from "@engram/logger";
-import { ToolCallType, type ToolCallTypeValue } from "@engram/memory-core";
-import type { FalkorClient } from "@engram/storage";
+import type { GraphClient } from "@engram/storage";
+import {
+	type EventHandlerRegistry,
+	type HandlerContext,
+	type TurnState,
+	createDefaultHandlerRegistry,
+} from "./handlers";
+
+/**
+ * Input type for stream events from Kafka.
+ * This is a looser type than ParsedStreamEvent to handle partial/incomplete data
+ * from the message queue. Fields are normalized before processing.
+ */
+export interface StreamEventInput {
+	event_id?: string;
+	original_event_id?: string;
+	timestamp?: string;
+	type?: string;
+	role?: string; // Accepts any string, normalized to enum values
+	content?: string;
+	thought?: string;
+	tool_call?: {
+		id?: string;
+		name: string;
+		arguments_delta?: string;
+		index?: number;
+	};
+	diff?: {
+		file?: string;
+		hunk?: string;
+	};
+	usage?: {
+		input_tokens: number;
+		output_tokens: number;
+	};
+	metadata?: Record<string, unknown>;
+}
 
 /**
  * TurnAggregator handles the aggregation of streaming events into Turn nodes.
@@ -10,49 +45,12 @@ import type { FalkorClient } from "@engram/storage";
  * A Turn represents a single conversation turn (user prompt + assistant response).
  * Events arrive one at a time via Kafka, so we need to:
  * 1. Detect turn boundaries (new user message = new turn)
- * 2. Accumulate assistant content into the current turn
+ * 2. Delegate event processing to specialized handlers via Strategy pattern
  * 3. Create child nodes (Reasoning, ToolCall) as events arrive
  * 4. Create lineage edges: Reasoning -[TRIGGERS]-> ToolCall
  * 5. File operations are stored as properties on ToolCall nodes (file_path, file_action)
  * 6. Finalize the turn when usage event arrives (signals end of response)
  */
-
-interface ReasoningState {
-	id: string;
-	sequenceIndex: number;
-	content: string;
-}
-
-interface ToolCallState {
-	id: string;
-	callId: string;
-	toolName: string;
-	toolType: ToolCallTypeValue;
-	argumentsJson: string;
-	sequenceIndex: number;
-	triggeringReasoningIds: string[]; // IDs of reasoning blocks that triggered this
-	filePath?: string; // File being operated on (if file operation)
-	fileAction?: string; // read, write, edit, search, etc.
-}
-
-interface TurnState {
-	turnId: string;
-	sessionId: string;
-	userContent: string;
-	assistantContent: string;
-	reasoningBlocks: ReasoningState[];
-	toolCalls: ToolCallState[];
-	filesTouched: Map<string, { action: string; count: number; toolCallId?: string }>;
-	// Track pending reasoning blocks that haven't been linked to a tool call yet
-	pendingReasoningIds: string[];
-	toolCallsCount: number;
-	contentBlockIndex: number; // Track position within content blocks
-	inputTokens: number;
-	outputTokens: number;
-	sequenceIndex: number;
-	createdAt: number;
-	isFinalized: boolean;
-}
 
 // In-memory state for active turns per session
 const activeTurns = new Map<string, TurnState>();
@@ -75,15 +73,44 @@ export type NodeCreatedCallback = (
 	},
 ) => void;
 
-export class TurnAggregator {
-	private onNodeCreated?: NodeCreatedCallback;
+/**
+ * Dependencies for TurnAggregator construction.
+ * Supports dependency injection for testability.
+ */
+export interface TurnAggregatorDeps {
+	graphClient: GraphClient;
+	logger: Logger;
+	onNodeCreated?: NodeCreatedCallback;
+	handlerRegistry?: EventHandlerRegistry;
+}
 
+export class TurnAggregator {
+	private graphClient: GraphClient;
+	private logger: Logger;
+	private onNodeCreated?: NodeCreatedCallback;
+	private handlerRegistry: EventHandlerRegistry;
+
+	constructor(deps: TurnAggregatorDeps);
+	/** @deprecated Use TurnAggregatorDeps object instead */
+	constructor(falkor: GraphClient, logger: Logger, onNodeCreated?: NodeCreatedCallback);
 	constructor(
-		private falkor: FalkorClient,
-		private logger: Logger,
-		onNodeCreated?: NodeCreatedCallback,
+		depsOrFalkor: TurnAggregatorDeps | GraphClient,
+		loggerArg?: Logger,
+		onNodeCreatedArg?: NodeCreatedCallback,
 	) {
-		this.onNodeCreated = onNodeCreated;
+		// Support both new deps object and legacy positional arguments
+		if ("graphClient" in depsOrFalkor) {
+			this.graphClient = depsOrFalkor.graphClient;
+			this.logger = depsOrFalkor.logger;
+			this.onNodeCreated = depsOrFalkor.onNodeCreated;
+			this.handlerRegistry = depsOrFalkor.handlerRegistry ?? createDefaultHandlerRegistry();
+		} else {
+			// Legacy constructor support
+			this.graphClient = depsOrFalkor;
+			this.logger = loggerArg!;
+			this.onNodeCreated = onNodeCreatedArg;
+			this.handlerRegistry = createDefaultHandlerRegistry();
+		}
 	}
 
 	/**
@@ -108,10 +135,75 @@ export class TurnAggregator {
 	}
 
 	/**
-	 * Process a parsed stream event and aggregate into Turn/Reasoning/FileTouch nodes
+	 * Create handler context for event processing
 	 */
-	async processEvent(event: ParsedStreamEvent, sessionId: string): Promise<void> {
-		const { type, role, content, thought, tool_call, usage, diff } = event;
+	private createHandlerContext(sessionId: string, turnId: string): HandlerContext {
+		return {
+			sessionId,
+			turnId,
+			graphClient: this.graphClient,
+			logger: this.logger,
+			emitNodeCreated: (node) => this.emitNodeCreated(sessionId, node),
+		};
+	}
+
+	/**
+	 * Normalize a role string to the expected enum values.
+	 */
+	private normalizeRole(role?: string): "user" | "assistant" | "system" | undefined {
+		if (!role) return undefined;
+		const normalized = role.toLowerCase();
+		if (normalized === "user" || normalized === "assistant" || normalized === "system") {
+			return normalized;
+		}
+		return undefined;
+	}
+
+	/**
+	 * Normalize a StreamEventInput to a ParsedStreamEvent for handler processing.
+	 * Provides default values for required fields.
+	 */
+	private normalizeEvent(input: StreamEventInput): ParsedStreamEvent {
+		const eventId = input.event_id || randomUUID();
+		const originalEventId = input.original_event_id || eventId;
+		const timestamp = input.timestamp || new Date().toISOString();
+		const eventType = (input.type || "content") as ParsedStreamEvent["type"];
+
+		return {
+			event_id: eventId,
+			original_event_id: originalEventId,
+			timestamp,
+			type: eventType,
+			role: this.normalizeRole(input.role),
+			content: input.content,
+			thought: input.thought,
+			tool_call: input.tool_call
+				? {
+						id: input.tool_call.id || `call_${randomUUID().slice(0, 8)}`,
+						name: input.tool_call.name,
+						arguments_delta: input.tool_call.arguments_delta || "{}",
+						index: input.tool_call.index ?? 0,
+					}
+				: undefined,
+			diff: input.diff
+				? {
+						file: input.diff.file,
+						hunk: input.diff.hunk || "",
+					}
+				: undefined,
+			usage: input.usage,
+			metadata: input.metadata,
+		};
+	}
+
+	/**
+	 * Process a stream event and aggregate into Turn/Reasoning/FileTouch nodes.
+	 * Accepts both loose StreamEventInput (from Kafka) and strict ParsedStreamEvent.
+	 */
+	async processEvent(event: StreamEventInput | ParsedStreamEvent, sessionId: string): Promise<void> {
+		// Normalize input to ParsedStreamEvent
+		const normalizedEvent = this.normalizeEvent(event);
+		const { role, content } = normalizedEvent;
 
 		// User content starts a new turn
 		if (role === "user" && content) {
@@ -124,109 +216,54 @@ export class TurnAggregator {
 
 		// If no active turn and we get assistant content, create a turn without user content
 		// (This handles cases where we miss the user message)
-		if (!turn && (content || thought || tool_call)) {
+		if (!turn && (normalizedEvent.content || normalizedEvent.thought || normalizedEvent.tool_call)) {
 			turn = await this.startNewTurn(sessionId, "[No user message captured]");
 		}
 
 		if (!turn) {
-			this.logger.debug({ sessionId, type }, "No active turn, skipping event");
+			this.logger.debug({ sessionId, type: normalizedEvent.type }, "No active turn, skipping event");
 			return;
 		}
 
-		// Process based on event type
-		switch (type) {
-			case "content":
-				if (role === "assistant" && content) {
-					turn.assistantContent += content;
-					turn.contentBlockIndex++;
-					await this.updateTurnPreview(turn);
-				}
-				break;
+		// Delegate to handler registry using Strategy pattern
+		const handlers = this.handlerRegistry.getHandlers(normalizedEvent);
 
-			case "thought":
-				if (thought) {
-					const reasoningId = await this.createReasoningNode(turn, thought);
-					const reasoningState: ReasoningState = {
-						id: reasoningId,
-						sequenceIndex: turn.contentBlockIndex,
-						content: thought,
-					};
-					turn.reasoningBlocks.push(reasoningState);
-					// Add to pending reasoning IDs - will be linked to next tool call
-					turn.pendingReasoningIds.push(reasoningId);
-					turn.contentBlockIndex++;
-				}
-				break;
+		if (handlers.length === 0) {
+			this.logger.debug(
+				{ sessionId, eventType: normalizedEvent.type },
+				"No handler found for event type",
+			);
+			return;
+		}
 
-			case "tool_call":
-				if (tool_call) {
-					turn.toolCallsCount++;
-					// Extract file path from tool call if it's a file operation
-					const filePath = this.extractFilePath(tool_call.name, tool_call.arguments_delta);
-					const fileAction = filePath ? this.inferFileAction(tool_call.name) : undefined;
+		const context = this.createHandlerContext(sessionId, turn.turnId);
 
-					// Create ToolCall node with file info embedded (no separate FileTouch node)
-					const toolCallState = await this.createToolCallNode(
-						turn,
-						tool_call,
-						filePath ?? undefined,
-						fileAction,
+		for (const handler of handlers) {
+			try {
+				const result = await handler.handle(normalizedEvent, turn, context);
+				if (result.handled) {
+					this.logger.debug(
+						{
+							sessionId,
+							turnId: turn.turnId,
+							handler: handler.eventType,
+							action: result.action,
+							nodeId: result.nodeId,
+						},
+						"Handler processed event",
 					);
-					turn.toolCalls.push(toolCallState);
-					turn.contentBlockIndex++;
-
-					// Track files touched at turn level for aggregation
-					if (filePath) {
-						const existing = turn.filesTouched.get(filePath);
-						if (existing) {
-							existing.count++;
-						} else {
-							turn.filesTouched.set(filePath, {
-								action: fileAction!,
-								count: 1,
-								toolCallId: toolCallState.id,
-							});
-						}
-					}
 				}
-				break;
-
-			case "diff":
-				if (diff?.file) {
-					const action = "edit";
-					// Find the most recent tool call and update its file_path if not already set
-					const recentToolCall =
-						turn.toolCalls.length > 0 ? turn.toolCalls[turn.toolCalls.length - 1] : undefined;
-
-					if (recentToolCall && !recentToolCall.filePath) {
-						// Update the tool call with file info from the diff
-						recentToolCall.filePath = diff.file;
-						recentToolCall.fileAction = action;
-						await this.updateToolCallFile(recentToolCall.id, diff.file, action, diff.hunk);
-					}
-
-					// Track files touched at turn level for aggregation
-					const existing = turn.filesTouched.get(diff.file);
-					if (existing) {
-						existing.count++;
-					} else {
-						turn.filesTouched.set(diff.file, {
-							action,
-							count: 1,
-							toolCallId: recentToolCall?.id,
-						});
-					}
-				}
-				break;
-
-			case "usage":
-				if (usage) {
-					turn.inputTokens = usage.input_tokens;
-					turn.outputTokens = usage.output_tokens;
-					// Usage event typically signals end of response - finalize the turn
-					await this.finalizeTurn(turn);
-				}
-				break;
+			} catch (error) {
+				this.logger.error(
+					{
+						err: error,
+						sessionId,
+						turnId: turn.turnId,
+						handler: handler.eventType,
+					},
+					"Handler failed to process event",
+				);
+			}
 		}
 	}
 
@@ -305,7 +342,7 @@ export class TurnAggregator {
 			RETURN t
 		`;
 
-		await this.falkor.query(query, {
+		await this.graphClient.query(query, {
 			sessionId: turn.sessionId,
 			turnId: turn.turnId,
 			userContent: turn.userContent.slice(0, 10000), // Limit stored content
@@ -331,218 +368,6 @@ export class TurnAggregator {
 	}
 
 	/**
-	 * Update the Turn node's assistant preview as content streams in
-	 */
-	private async updateTurnPreview(turn: TurnState): Promise<void> {
-		// Only update every 500 chars to reduce writes
-		if (turn.assistantContent.length % 500 !== 0) return;
-
-		const query = `
-			MATCH (t:Turn {id: $turnId})
-			SET t.assistant_preview = $preview
-		`;
-
-		await this.falkor.query(query, {
-			turnId: turn.turnId,
-			preview: turn.assistantContent.slice(0, 2000),
-		});
-	}
-
-	/**
-	 * Create a Reasoning node for a thinking block
-	 * Returns the reasoning ID for linking to subsequent tool calls
-	 */
-	private async createReasoningNode(turn: TurnState, thought: string): Promise<string> {
-		const reasoningId = randomUUID();
-		const now = Date.now();
-		const contentHash = sha256(thought);
-		const sequenceIndex = turn.contentBlockIndex;
-
-		const query = `
-			MATCH (t:Turn {id: $turnId})
-			CREATE (r:Reasoning {
-				id: $reasoningId,
-				content_hash: $contentHash,
-				preview: $preview,
-				reasoning_type: 'chain_of_thought',
-				sequence_index: $sequenceIndex,
-				vt_start: $now
-			})
-			MERGE (t)-[:CONTAINS]->(r)
-			RETURN r
-		`;
-
-		await this.falkor.query(query, {
-			turnId: turn.turnId,
-			reasoningId,
-			contentHash,
-			preview: thought.slice(0, 1000),
-			sequenceIndex,
-			now,
-		});
-
-		this.logger.debug({ reasoningId, turnId: turn.turnId }, "Created reasoning node");
-
-		// Emit node created event for real-time WebSocket updates
-		this.emitNodeCreated(turn.sessionId, {
-			id: reasoningId,
-			type: "reasoning",
-			label: "Reasoning",
-			properties: {
-				preview: thought.slice(0, 500),
-				sequence_index: sequenceIndex,
-			},
-		});
-
-		return reasoningId;
-	}
-
-	/**
-	 * Create a ToolCall node and link to pending reasoning blocks via TRIGGERS edges
-	 * File operations include file_path and file_action directly on the ToolCall node
-	 */
-	private async createToolCallNode(
-		turn: TurnState,
-		toolCall: { name: string; id?: string; arguments_delta?: string },
-		filePath?: string,
-		fileAction?: string,
-	): Promise<ToolCallState> {
-		const toolCallId = randomUUID();
-		const now = Date.now();
-		const callId = toolCall.id || `call_${randomUUID().slice(0, 8)}`;
-		const toolType = this.inferToolType(toolCall.name);
-		const argumentsJson = toolCall.arguments_delta || "{}";
-		const argumentsPreview = argumentsJson.slice(0, 500);
-
-		// Capture the pending reasoning IDs that triggered this tool call
-		const triggeringReasoningIds = [...turn.pendingReasoningIds];
-		// Get the sequence of the last reasoning block (if any)
-		const reasoningSequence =
-			turn.reasoningBlocks.length > 0
-				? turn.reasoningBlocks[turn.reasoningBlocks.length - 1].sequenceIndex
-				: undefined;
-
-		// Create the ToolCall node with INVOKES edge from Turn
-		// file_path and file_action are included for file operations
-		const createQuery = `
-			MATCH (t:Turn {id: $turnId})
-			CREATE (tc:ToolCall {
-				id: $toolCallId,
-				call_id: $callId,
-				tool_name: $toolName,
-				tool_type: $toolType,
-				arguments_json: $argumentsJson,
-				arguments_preview: $argumentsPreview,
-				file_path: $filePath,
-				file_action: $fileAction,
-				status: 'pending',
-				sequence_index: $sequenceIndex,
-				reasoning_sequence: $reasoningSequence,
-				vt_start: $now
-			})
-			MERGE (t)-[:INVOKES]->(tc)
-			RETURN tc
-		`;
-
-		await this.falkor.query(createQuery, {
-			turnId: turn.turnId,
-			toolCallId,
-			callId,
-			toolName: toolCall.name,
-			toolType,
-			argumentsJson,
-			argumentsPreview,
-			filePath: filePath ?? null,
-			fileAction: fileAction ?? null,
-			sequenceIndex: turn.contentBlockIndex,
-			reasoningSequence: reasoningSequence ?? null,
-			now,
-		});
-
-		// Create TRIGGERS edges from all pending reasoning blocks to this ToolCall
-		if (triggeringReasoningIds.length > 0) {
-			const triggersQuery = `
-				MATCH (r:Reasoning) WHERE r.id IN $reasoningIds
-				MATCH (tc:ToolCall {id: $toolCallId})
-				MERGE (r)-[:TRIGGERS]->(tc)
-			`;
-			await this.falkor.query(triggersQuery, {
-				reasoningIds: triggeringReasoningIds,
-				toolCallId,
-			});
-		}
-
-		// Clear pending reasoning IDs - they've been linked
-		turn.pendingReasoningIds = [];
-
-		this.logger.debug(
-			{
-				toolCallId,
-				toolName: toolCall.name,
-				toolType,
-				filePath,
-				fileAction,
-				turnId: turn.turnId,
-				triggeringReasoningCount: triggeringReasoningIds.length,
-			},
-			"Created tool call node with triggers",
-		);
-
-		// Emit node created event for real-time WebSocket updates
-		this.emitNodeCreated(turn.sessionId, {
-			id: toolCallId,
-			type: "toolcall",
-			label: "ToolCall",
-			properties: {
-				tool_name: toolCall.name,
-				tool_type: toolType,
-				arguments_preview: argumentsPreview,
-				file_path: filePath,
-				file_action: fileAction,
-				sequence_index: turn.contentBlockIndex,
-			},
-		});
-
-		return {
-			id: toolCallId,
-			callId,
-			toolName: toolCall.name,
-			toolType,
-			argumentsJson,
-			sequenceIndex: turn.contentBlockIndex,
-			triggeringReasoningIds,
-			filePath,
-			fileAction,
-		};
-	}
-
-	/**
-	 * Update a ToolCall node with file path and action (from diff events)
-	 */
-	private async updateToolCallFile(
-		toolCallId: string,
-		filePath: string,
-		fileAction: string,
-		diffPreview?: string,
-	): Promise<void> {
-		const query = `
-			MATCH (tc:ToolCall {id: $toolCallId})
-			SET tc.file_path = $filePath,
-				tc.file_action = $fileAction,
-				tc.diff_preview = $diffPreview
-		`;
-
-		await this.falkor.query(query, {
-			toolCallId,
-			filePath,
-			fileAction,
-			diffPreview: diffPreview?.slice(0, 500) ?? null,
-		});
-
-		this.logger.debug({ toolCallId, filePath, fileAction }, "Updated tool call with file info");
-	}
-
-	/**
 	 * Finalize a turn (update with final stats)
 	 */
 	private async finalizeTurn(turn: TurnState): Promise<void> {
@@ -557,7 +382,7 @@ export class TurnAggregator {
 				t.output_tokens = $outputTokens
 		`;
 
-		await this.falkor.query(query, {
+		await this.graphClient.query(query, {
 			turnId: turn.turnId,
 			preview: turn.assistantContent.slice(0, 2000),
 			filesTouched: JSON.stringify([...turn.filesTouched.keys()]),
@@ -581,134 +406,6 @@ export class TurnAggregator {
 	}
 
 	/**
-	 * Extract file path from tool call arguments
-	 */
-	private extractFilePath(toolName: string, argsJson: string): string | null {
-		// Common file operation tools
-		const fileTools = [
-			"Read",
-			"Write",
-			"Edit",
-			"Glob",
-			"Grep",
-			"read_file",
-			"write_file",
-			"edit_file",
-		];
-		if (!fileTools.some((t) => toolName.toLowerCase().includes(t.toLowerCase()))) {
-			return null;
-		}
-
-		try {
-			// Arguments come as partial JSON during streaming, try to extract file_path or path
-			const pathMatch = argsJson.match(/"(?:file_path|path|file)":\s*"([^"]+)"/);
-			if (pathMatch) {
-				return pathMatch[1];
-			}
-		} catch {
-			// Ignore parse errors for partial JSON
-		}
-		return null;
-	}
-
-	/**
-	 * Infer file action from tool name
-	 */
-	private inferFileAction(toolName: string): string {
-		const lowerName = toolName.toLowerCase();
-		if (lowerName.includes("glob")) {
-			return "search";
-		}
-		if (lowerName.includes("grep")) {
-			return "search";
-		}
-		if (lowerName.includes("ls") || lowerName === "list") {
-			return "list";
-		}
-		if (lowerName.includes("read")) {
-			return "read";
-		}
-		if (lowerName.includes("write") || lowerName.includes("create")) {
-			return "create";
-		}
-		if (lowerName.includes("edit")) {
-			return "edit";
-		}
-		if (lowerName.includes("delete") || lowerName.includes("remove")) {
-			return "delete";
-		}
-		return "read";
-	}
-
-	/**
-	 * Infer tool call type from tool name
-	 * Maps tool names to ToolCallType enum values
-	 */
-	private inferToolType(toolName: string): ToolCallTypeValue {
-		const name = toolName.toLowerCase();
-
-		// MCP tools
-		if (name.startsWith("mcp__") || name.startsWith("mcp_")) {
-			return ToolCallType.MCP;
-		}
-
-		// File operations
-		if (name === "read" || name === "read_file" || name === "readfile") {
-			return ToolCallType.FILE_READ;
-		}
-		if (name === "write" || name === "write_file" || name === "writefile") {
-			return ToolCallType.FILE_WRITE;
-		}
-		if (name === "edit" || name === "edit_file" || name === "editfile") {
-			return ToolCallType.FILE_EDIT;
-		}
-		if (name === "multiedit" || name === "multi_edit" || name === "multifileedit") {
-			return ToolCallType.FILE_MULTI_EDIT;
-		}
-		if (name === "glob") {
-			return ToolCallType.FILE_GLOB;
-		}
-		if (name === "grep") {
-			return ToolCallType.FILE_GREP;
-		}
-		if (name === "ls" || name === "list" || name === "listfiles") {
-			return ToolCallType.FILE_LIST;
-		}
-
-		// Execution
-		if (name === "bash" || name === "shell" || name === "execute") {
-			return ToolCallType.BASH_EXEC;
-		}
-		if (name === "notebookread" || name === "notebook_read") {
-			return ToolCallType.NOTEBOOK_READ;
-		}
-		if (name === "notebookedit" || name === "notebook_edit") {
-			return ToolCallType.NOTEBOOK_EDIT;
-		}
-
-		// Web
-		if (name === "webfetch" || name === "web_fetch" || name === "fetch") {
-			return ToolCallType.WEB_FETCH;
-		}
-		if (name === "websearch" || name === "web_search" || name === "search") {
-			return ToolCallType.WEB_SEARCH;
-		}
-
-		// Agent
-		if (name === "task" || name === "spawn" || name === "agent") {
-			return ToolCallType.AGENT_SPAWN;
-		}
-		if (name === "todoread" || name === "todo_read") {
-			return ToolCallType.TODO_READ;
-		}
-		if (name === "todowrite" || name === "todo_write") {
-			return ToolCallType.TODO_WRITE;
-		}
-
-		return ToolCallType.UNKNOWN;
-	}
-
-	/**
 	 * Clean up stale turns (runs periodically)
 	 */
 	async cleanupStaleTurns(maxAgeMs: number = 30 * 60 * 1000): Promise<void> {
@@ -720,5 +417,12 @@ export class TurnAggregator {
 				this.logger.info({ turnId: turn.turnId, sessionId }, "Cleaned up stale turn");
 			}
 		}
+	}
+
+	/**
+	 * Get the handler registry (for testing or custom handler registration)
+	 */
+	getHandlerRegistry(): EventHandlerRegistry {
+		return this.handlerRegistry;
 	}
 }

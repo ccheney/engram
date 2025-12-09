@@ -2,11 +2,11 @@
 
 import type { LineageResponse, ReplayResponse } from "@lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWebSocket, type WebSocketStatus } from "./useWebSocket";
 
 interface SessionStreamState {
 	lineage: LineageResponse | null;
 	replay: ReplayResponse | null;
-	isConnected: boolean;
 	error: string | null;
 }
 
@@ -16,9 +16,18 @@ interface UseSessionStreamOptions {
 	onReplayUpdate?: (data: ReplayResponse) => void;
 }
 
+interface SessionMessage {
+	type: "lineage" | "replay" | "update" | "error";
+	data?: LineageResponse | ReplayResponse | { type: string };
+	lineage?: LineageResponse;
+	replay?: ReplayResponse;
+	message?: string;
+}
+
 /**
- * Custom hook for real-time session data streaming
- * Uses WebSocket when available, falls back to polling
+ * Custom hook for real-time session data streaming.
+ * Uses WebSocket when available, falls back to polling.
+ * Built on the shared useWebSocket hook.
  */
 export function useSessionStream({
 	sessionId,
@@ -28,15 +37,24 @@ export function useSessionStream({
 	const [state, setState] = useState<SessionStreamState>({
 		lineage: null,
 		replay: null,
-		isConnected: false,
 		error: null,
 	});
 
-	const wsRef = useRef<WebSocket | null>(null);
-	const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-	const reconnectAttempts = useRef(0);
-	const maxReconnectAttempts = 5;
+	const wsConnectedRef = useRef(false);
+	const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+	// Store callbacks in refs to avoid effect re-runs
+	const onLineageUpdateRef = useRef(onLineageUpdate);
+	const onReplayUpdateRef = useRef(onReplayUpdate);
+
+	useEffect(() => {
+		onLineageUpdateRef.current = onLineageUpdate;
+	}, [onLineageUpdate]);
+
+	useEffect(() => {
+		onReplayUpdateRef.current = onReplayUpdate;
+	}, [onReplayUpdate]);
 
 	// Fetch data via REST (used for initial load and polling fallback)
 	const fetchData = useCallback(async () => {
@@ -59,8 +77,8 @@ export function useSessionStream({
 				error: null,
 			}));
 
-			if (lineageData) onLineageUpdate?.(lineageData);
-			if (replayData) onReplayUpdate?.(replayData);
+			if (lineageData) onLineageUpdateRef.current?.(lineageData);
+			if (replayData) onReplayUpdateRef.current?.(replayData);
 
 			return { lineage: lineageData, replay: replayData };
 		} catch (err) {
@@ -68,12 +86,13 @@ export function useSessionStream({
 			setState((prev) => ({ ...prev, error: message }));
 			return null;
 		}
-	}, [sessionId, onLineageUpdate, onReplayUpdate]);
+	}, [sessionId]);
 
 	// Start polling fallback
 	const startPolling = useCallback(() => {
 		if (pollingIntervalRef.current) return;
 
+		console.log("[SessionStream] Starting polling fallback");
 		// Initial fetch
 		fetchData();
 
@@ -91,165 +110,147 @@ export function useSessionStream({
 		}
 	}, []);
 
-	// Connect to WebSocket
-	const connectWebSocket = useCallback(() => {
-		if (wsRef.current?.readyState === WebSocket.OPEN) return;
+	// WebSocket send function ref (populated by useWebSocket)
+	const sendRef = useRef<(data: string | object) => void>(() => {});
 
-		// Determine WebSocket URL
-		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-		const wsUrl = `${protocol}//${window.location.host}/api/ws/session/${sessionId}`;
+	const handleMessage = useCallback((message: SessionMessage) => {
+		switch (message.type) {
+			case "lineage":
+				setState((prev) => ({ ...prev, lineage: message.data as LineageResponse }));
+				onLineageUpdateRef.current?.(message.data as LineageResponse);
+				break;
 
-		try {
-			const ws = new WebSocket(wsUrl);
-			wsRef.current = ws;
+			case "replay":
+				setState((prev) => ({ ...prev, replay: message.data as ReplayResponse }));
+				onReplayUpdateRef.current?.(message.data as ReplayResponse);
+				break;
 
-			ws.onopen = () => {
-				console.log("[SessionStream] WebSocket connected");
-				setState((prev) => ({ ...prev, isConnected: true, error: null }));
-				reconnectAttempts.current = 0;
-				stopPolling();
-
-				// Subscribe to session updates
-				ws.send(
-					JSON.stringify({
-						type: "subscribe",
-						sessionId,
-					}),
-				);
-			};
-
-			ws.onmessage = (event) => {
-				try {
-					const message = JSON.parse(event.data);
-
-					switch (message.type) {
-						case "lineage":
-							setState((prev) => ({ ...prev, lineage: message.data }));
-							onLineageUpdate?.(message.data);
-							break;
-
-						case "replay":
-							setState((prev) => ({ ...prev, replay: message.data }));
-							onReplayUpdate?.(message.data);
-							break;
-
-						case "update":
-							// Real-time incremental update from Redis Pub/Sub
-							// For now, request a full refresh to get latest data
-							// This could be optimized to do incremental updates client-side
-							if (
-								message.data?.type === "node_created" ||
-								message.data?.type === "graph_node_created"
-							) {
-								// New node was created - request full refresh
-								ws.send(JSON.stringify({ type: "refresh" }));
-							} else if (message.lineage) {
-								// Legacy combined update format
-								setState((prev) => ({ ...prev, lineage: message.lineage }));
-								onLineageUpdate?.(message.lineage);
-							}
-							if (message.replay) {
-								setState((prev) => ({ ...prev, replay: message.replay }));
-								onReplayUpdate?.(message.replay);
-							}
-							break;
-
-						case "error":
-							setState((prev) => ({ ...prev, error: message.message }));
-							break;
-
-						default:
-							console.log("[SessionStream] Unknown message type:", message.type);
-					}
-				} catch (err) {
-					console.error("[SessionStream] Failed to parse message:", err);
+			case "update": {
+				// Real-time incremental update from Redis Pub/Sub
+				const updateData = message.data as { type: string } | undefined;
+				if (updateData?.type === "node_created" || updateData?.type === "graph_node_created") {
+					// New node was created - request full refresh
+					sendRef.current({ type: "refresh" });
+				} else if (message.lineage) {
+					// Legacy combined update format
+					setState((prev) => ({ ...prev, lineage: message.lineage! }));
+					onLineageUpdateRef.current?.(message.lineage);
 				}
-			};
-
-			ws.onclose = (event) => {
-				console.log("[SessionStream] WebSocket closed:", event.code, event.reason);
-				setState((prev) => ({ ...prev, isConnected: false }));
-				wsRef.current = null;
-
-				// Attempt reconnection
-				if (reconnectAttempts.current < maxReconnectAttempts) {
-					const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
-					reconnectAttempts.current++;
-
-					console.log(
-						`[SessionStream] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`,
-					);
-					reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay);
-				} else {
-					console.log("[SessionStream] Max reconnect attempts reached, falling back to polling");
-					startPolling();
+				if (message.replay) {
+					setState((prev) => ({ ...prev, replay: message.replay! }));
+					onReplayUpdateRef.current?.(message.replay);
 				}
-			};
+				break;
+			}
 
-			ws.onerror = () => {
-				console.error("[SessionStream] WebSocket connection error");
-				// Don't set error state here, let onclose handle reconnection
-			};
-		} catch (err) {
-			console.error("[SessionStream] Failed to create WebSocket:", err);
-			// Fall back to polling
+			case "error":
+				setState((prev) => ({ ...prev, error: message.message || "Unknown error" }));
+				break;
+
+			default:
+				console.log("[SessionStream] Unknown message type:", message.type);
+		}
+	}, []);
+
+	const handleOpen = useCallback(
+		(ws: WebSocket) => {
+			console.log("[SessionStream] WebSocket connected");
+			wsConnectedRef.current = true;
+			setState((prev) => ({ ...prev, error: null }));
+			stopPolling();
+
+			// Clear fallback timeout since we connected
+			if (fallbackTimeoutRef.current) {
+				clearTimeout(fallbackTimeoutRef.current);
+				fallbackTimeoutRef.current = null;
+			}
+
+			// Subscribe to session updates
+			ws.send(
+				JSON.stringify({
+					type: "subscribe",
+					sessionId,
+				}),
+			);
+		},
+		[sessionId, stopPolling],
+	);
+
+	const handleClose = useCallback(() => {
+		console.log("[SessionStream] WebSocket closed");
+		wsConnectedRef.current = false;
+	}, []);
+
+	const handleError = useCallback(() => {
+		console.error("[SessionStream] WebSocket connection error");
+	}, []);
+
+	const { status, isConnected, send, close, reconnect, reconnectAttempt } = useWebSocket<SessionMessage>({
+		url: `/api/ws/session/${sessionId}`,
+		onMessage: handleMessage,
+		onOpen: handleOpen,
+		onClose: handleClose,
+		onError: handleError,
+		reconnect: true,
+		maxReconnectAttempts: 5,
+	});
+
+	// Store send in ref for use in handleMessage
+	useEffect(() => {
+		sendRef.current = send;
+	}, [send]);
+
+	// Fall back to polling if max reconnect attempts reached
+	useEffect(() => {
+		if (!isConnected && reconnectAttempt >= 5) {
+			console.log("[SessionStream] Max reconnect attempts reached, falling back to polling");
 			startPolling();
 		}
-	}, [sessionId, onLineageUpdate, onReplayUpdate, startPolling, stopPolling]);
+	}, [isConnected, reconnectAttempt, startPolling]);
 
-	// Disconnect WebSocket
-	const disconnect = useCallback(() => {
-		if (reconnectTimeoutRef.current) {
-			clearTimeout(reconnectTimeoutRef.current);
-			reconnectTimeoutRef.current = null;
-		}
-
-		if (wsRef.current) {
-			wsRef.current.close();
-			wsRef.current = null;
-		}
-
-		stopPolling();
-	}, [stopPolling]);
-
-	// Effect to manage connection lifecycle
+	// Initial data fetch and fallback timeout
 	useEffect(() => {
 		// Initial data fetch
 		fetchData();
 
-		// Try WebSocket first, fall back to polling if it fails
-		// Check if WebSocket endpoint exists by trying to connect
-		connectWebSocket();
-
 		// If WebSocket doesn't connect within 3 seconds, start polling
-		const fallbackTimeout = setTimeout(() => {
-			if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+		fallbackTimeoutRef.current = setTimeout(() => {
+			if (!wsConnectedRef.current) {
 				console.log("[SessionStream] WebSocket not available, using polling");
 				startPolling();
 			}
 		}, 3000);
 
 		return () => {
-			clearTimeout(fallbackTimeout);
-			disconnect();
+			if (fallbackTimeoutRef.current) {
+				clearTimeout(fallbackTimeoutRef.current);
+			}
+			stopPolling();
 		};
-	}, [
-		// Try WebSocket first, fall back to polling if it fails
-		// Check if WebSocket endpoint exists by trying to connect
-		connectWebSocket,
-		disconnect, // Initial data fetch
-		fetchData,
-		startPolling,
-	]); // Only re-run if sessionId changes
+	}, [fetchData, startPolling, stopPolling]);
 
 	// Manual refresh function
 	const refresh = useCallback(() => {
 		return fetchData();
 	}, [fetchData]);
 
+	// Disconnect handler that also stops polling
+	const disconnect = useCallback(() => {
+		close();
+		stopPolling();
+	}, [close, stopPolling]);
+
 	return {
-		...state,
+		lineage: state.lineage,
+		replay: state.replay,
+		isConnected,
+		status,
+		error: state.error,
 		refresh,
 		disconnect,
+		reconnect,
 	};
 }
+
+// Re-export WebSocketStatus for consumers
+export type { WebSocketStatus };

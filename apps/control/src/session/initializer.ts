@@ -1,13 +1,53 @@
-import { createNodeLogger } from "@engram/logger";
-import type { FalkorClient } from "@engram/storage";
+import { type Logger, createNodeLogger } from "@engram/logger";
+import { type FalkorClient, type GraphClient, createFalkorClient } from "@engram/storage";
 
-const logger = createNodeLogger({
-	service: "control-service",
-	base: { component: "session-initializer" },
-});
+/**
+ * Dependencies for SessionInitializer construction.
+ * Supports dependency injection for testability.
+ */
+export interface SessionInitializerDeps {
+	/** Graph client for session persistence. Defaults to FalkorClient. */
+	graphClient?: GraphClient;
+	/** Logger instance. Defaults to createNodeLogger. */
+	logger?: Logger;
+}
 
 export class SessionInitializer {
-	constructor(private falkor: FalkorClient) {}
+	private graphClient: GraphClient;
+	private logger: Logger;
+
+	/**
+	 * Create a SessionInitializer with injectable dependencies.
+	 * @param deps - Optional dependencies. Defaults are used when not provided.
+	 */
+	constructor(deps?: SessionInitializerDeps);
+	/** @deprecated Use SessionInitializerDeps object instead */
+	constructor(falkor: FalkorClient);
+	constructor(depsOrFalkor?: SessionInitializerDeps | FalkorClient) {
+		if (depsOrFalkor === undefined) {
+			// No args: use defaults
+			this.graphClient = createFalkorClient();
+			this.logger = createNodeLogger({
+				service: "control-service",
+				base: { component: "session-initializer" },
+			});
+		} else if ("query" in depsOrFalkor && typeof depsOrFalkor.query === "function") {
+			// Legacy constructor: FalkorClient directly
+			this.graphClient = depsOrFalkor as GraphClient;
+			this.logger = createNodeLogger({
+				service: "control-service",
+				base: { component: "session-initializer" },
+			});
+		} else {
+			// New deps object constructor
+			const deps = depsOrFalkor as SessionInitializerDeps;
+			this.graphClient = deps.graphClient ?? createFalkorClient();
+			this.logger = deps.logger ?? createNodeLogger({
+				service: "control-service",
+				base: { component: "session-initializer" },
+			});
+		}
+	}
 
 	/**
 	 * Ensures a Session node exists in the graph.
@@ -15,7 +55,7 @@ export class SessionInitializer {
 	 */
 	async ensureSession(sessionId: string): Promise<void> {
 		const checkQuery = `MATCH (s:Session {id: $id}) RETURN s`;
-		const result = await this.falkor.query(checkQuery, { id: sessionId });
+		const result = await this.graphClient.query(checkQuery, { id: sessionId });
 
 		if (Array.isArray(result) && result.length > 0) {
 			// Session exists
@@ -33,7 +73,26 @@ export class SessionInitializer {
       RETURN s
     `;
 
-		await this.falkor.query(createQuery, { id: sessionId, now });
-		logger.info({ sessionId }, "Created new Session");
+		await this.graphClient.query(createQuery, { id: sessionId, now });
+		this.logger.info({ sessionId }, "Created new Session");
 	}
+}
+
+/**
+ * Factory function for creating SessionInitializer instances.
+ * Supports dependency injection for testability.
+ *
+ * @example
+ * // Production usage (uses defaults)
+ * const initializer = createSessionInitializer();
+ *
+ * @example
+ * // Test usage (inject mocks)
+ * const initializer = createSessionInitializer({
+ *   graphClient: mockGraphClient,
+ *   logger: mockLogger,
+ * });
+ */
+export function createSessionInitializer(deps?: SessionInitializerDeps): SessionInitializer {
+	return new SessionInitializer(deps);
 }

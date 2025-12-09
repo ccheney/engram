@@ -1,5 +1,6 @@
+import { GraphOperationError, SearchError } from "@engram/common";
 import type { SearchRetriever } from "@engram/search-core";
-import type { FalkorClient, ThoughtNode } from "@engram/storage";
+import { type FalkorClient, type GraphClient, type ThoughtNode, createFalkorClient } from "@engram/storage";
 
 const SYSTEM_PROMPT = `You are Engram, an intelligent assistant with access to a knowledge graph and semantic memory.
 You can recall past conversations, search for relevant information, and use tools to help accomplish tasks.
@@ -14,13 +15,47 @@ interface ContextSection {
 	priority: number; // Lower = higher priority (kept first when pruning)
 }
 
+/**
+ * Dependencies for ContextAssembler construction.
+ * Supports dependency injection for testability.
+ */
+export interface ContextAssemblerDeps {
+	/** Optional search retriever for semantic memory search. Null disables search. */
+	searchRetriever?: SearchRetriever | null;
+	/** Graph client for fetching session history. Defaults to FalkorClient. */
+	graphClient?: GraphClient;
+}
+
 export class ContextAssembler {
 	private search: SearchRetriever | null;
-	private memory: FalkorClient;
+	private memory: GraphClient;
 
-	constructor(search: SearchRetriever | null, memory: FalkorClient) {
-		this.search = search;
-		this.memory = memory;
+	/**
+	 * Create a ContextAssembler with injectable dependencies.
+	 * @param deps - Optional dependencies. Defaults are used when not provided.
+	 */
+	constructor(deps?: ContextAssemblerDeps);
+	/** @deprecated Use ContextAssemblerDeps object instead */
+	constructor(search: SearchRetriever | null, memory: FalkorClient);
+	constructor(
+		depsOrSearch?: ContextAssemblerDeps | SearchRetriever | null,
+		memoryArg?: FalkorClient,
+	) {
+		// Support both new deps object and legacy positional arguments
+		if (depsOrSearch === undefined || depsOrSearch === null || "search" in depsOrSearch === false && "searchRetriever" in (depsOrSearch as object) === false && memoryArg !== undefined) {
+			// Legacy constructor: (search, memory)
+			this.search = depsOrSearch as SearchRetriever | null;
+			this.memory = memoryArg ?? createFalkorClient();
+		} else if (typeof depsOrSearch === "object" && depsOrSearch !== null && ("searchRetriever" in depsOrSearch || "graphClient" in depsOrSearch)) {
+			// New deps object constructor
+			const deps = depsOrSearch as ContextAssemblerDeps;
+			this.search = deps.searchRetriever ?? null;
+			this.memory = deps.graphClient ?? createFalkorClient();
+		} else {
+			// Fallback: treat as SearchRetriever (legacy)
+			this.search = depsOrSearch as SearchRetriever | null;
+			this.memory = memoryArg ?? createFalkorClient();
+		}
 	}
 
 	/**
@@ -78,19 +113,20 @@ export class ContextAssembler {
 	 * Uses NEXT relationship chain, falling back to timestamp ordering.
 	 */
 	private async fetchRecentHistory(sessionId: string, limit: number): Promise<ThoughtNode[]> {
+		// Define query strings at function scope so they're accessible in catch block
+		const chainQuery = `
+			MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(first:Thought)
+			OPTIONAL MATCH p = (first)-[:NEXT*0..${limit}]->(t:Thought)
+			WITH COALESCE(t, first) as thought
+			RETURN thought
+			ORDER BY thought.vt_start DESC
+			LIMIT ${limit}
+		`;
+
 		try {
 			await this.memory.connect();
 
 			// Try to fetch using NEXT chain (preferred for lineage)
-			const chainQuery = `
-				MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(first:Thought)
-				OPTIONAL MATCH p = (first)-[:NEXT*0..${limit}]->(t:Thought)
-				WITH COALESCE(t, first) as thought
-				RETURN thought
-				ORDER BY thought.vt_start DESC
-				LIMIT ${limit}
-			`;
-
 			const result = await this.memory.query<{ thought: ThoughtNode }>(chainQuery, { sessionId });
 
 			if (result.length > 0) {
@@ -110,9 +146,15 @@ export class ContextAssembler {
 				sessionId,
 			});
 			return fallbackResult.map((r) => r.thought);
-		} catch (_error) {
-			// If graph query fails, return empty history
-			return [];
+		} catch (error) {
+			// Log and throw typed error for graph query failures
+			const cause = error instanceof Error ? error : undefined;
+			throw new GraphOperationError(
+				`Failed to fetch recent history for session ${sessionId}`,
+				chainQuery,
+				cause,
+				{ sessionId, limit },
+			);
 		}
 	}
 
@@ -139,14 +181,23 @@ export class ContextAssembler {
 			}
 
 			// Extract content from search results, excluding current session's content
+			// Type assertion: search results have a payload with session_id and content
+			type SearchPayload = { session_id?: string; content?: string };
 			return results
-				.filter((r) => r.payload?.session_id !== currentSessionId)
-				.map((r) => r.payload?.content as string)
-				.filter(Boolean)
+				.filter((r) => (r.payload as SearchPayload)?.session_id !== currentSessionId)
+				.map((r) => (r.payload as SearchPayload)?.content)
+				.filter((content): content is string => Boolean(content))
 				.slice(0, 3); // Limit to top 3 most relevant
-		} catch (_error) {
-			// If search fails, return empty
-			return [];
+		} catch (error) {
+			// Log and throw typed error for search failures
+			const cause = error instanceof Error ? error : undefined;
+			throw new SearchError(
+				`Failed to search relevant memories for query`,
+				"SEARCH_QUERY_FAILED",
+				query.slice(0, 100), // Truncate query for error context
+				cause,
+				"query",
+			);
 		}
 	}
 
@@ -202,4 +253,23 @@ export class ContextAssembler {
 			})
 			.join("\n\n");
 	}
+}
+
+/**
+ * Factory function for creating ContextAssembler instances.
+ * Supports dependency injection for testability.
+ *
+ * @example
+ * // Production usage (uses defaults)
+ * const assembler = createContextAssembler();
+ *
+ * @example
+ * // Test usage (inject mocks)
+ * const assembler = createContextAssembler({
+ *   graphClient: mockGraphClient,
+ *   searchRetriever: mockSearchRetriever,
+ * });
+ */
+export function createContextAssembler(deps?: ContextAssemblerDeps): ContextAssembler {
+	return new ContextAssembler(deps);
 }

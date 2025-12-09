@@ -1,16 +1,30 @@
 import { FalkorDB, type Graph } from "falkordb";
+import type { GraphClient } from "./interfaces";
 
-// FalkorDB query parameter types (matches library's QueryParams)
+// =============================================================================
+// FalkorDB Query Parameter Types
+// =============================================================================
+
+/**
+ * FalkorDB query parameter types (matches library's QueryParams)
+ */
 export type QueryParam = null | string | number | boolean | QueryParams | Array<QueryParam>;
 export type QueryParams = { [key: string]: QueryParam };
 
 // =============================================================================
-// Generic FalkorDB Response Types
+// FalkorDB Response Types (Infrastructure Layer)
 // =============================================================================
 
 /**
- * Generic FalkorDB node type with typed properties
+ * Generic FalkorDB node type with typed properties.
+ * This is the raw node structure returned by FalkorDB queries.
+ *
  * @template T - The shape of the node's properties
+ *
+ * @example
+ * // Use with domain types from @engram/memory-core
+ * import type { SessionNode } from '@engram/memory-core';
+ * const result = await falkor.query<{ s: FalkorNode }>('MATCH (s:Session) RETURN s');
  */
 export interface FalkorNode<T extends Record<string, unknown> = Record<string, unknown>> {
 	id: number;
@@ -19,7 +33,12 @@ export interface FalkorNode<T extends Record<string, unknown> = Record<string, u
 }
 
 /**
- * Generic FalkorDB edge type with typed properties
+ * Generic FalkorDB edge type with typed properties.
+ * This is the raw edge structure returned by FalkorDB queries.
+ *
+ * Note: FalkorDB returns edge metadata in multiple formats depending on query type.
+ * Use the appropriate field: relationshipType, relation, or type.
+ *
  * @template T - The shape of the edge's properties
  */
 export interface FalkorEdge<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -34,147 +53,26 @@ export interface FalkorEdge<T extends Record<string, unknown> = Record<string, u
 	properties: T;
 }
 
-// =============================================================================
-// Bitemporal Properties (shared across domain types)
-// =============================================================================
-
-export interface BitemporalProperties {
-	vt_start: number;
-	vt_end: number;
-	tt_start: number;
-	tt_end: number;
-}
-
-// =============================================================================
-// Domain Property Types
-// =============================================================================
-
-export interface SessionProperties extends Partial<BitemporalProperties> {
-	id: string;
-	started_at?: number;
-	last_event_at?: number;
-	title?: string;
-	user_id?: string;
-	preview?: string;
-	// Project context
-	working_dir?: string;
-	git_remote?: string;
-	agent_type?: string;
-	summary?: string;
-	embedding?: number[];
-	[key: string]: unknown;
-}
-
-// DEPRECATED: Use TurnProperties instead
-export interface ThoughtProperties extends Partial<BitemporalProperties> {
-	id: string;
-	type: string;
-	role: string;
-	content: string;
-	timestamp?: string;
-	preview?: string;
-	[key: string]: unknown;
-}
-
-export interface TurnProperties extends Partial<BitemporalProperties> {
-	id: string;
-	user_content: string;
-	user_content_hash: string;
-	assistant_preview: string;
-	assistant_blob_ref?: string;
-	embedding?: number[];
-	sequence_index: number;
-	files_touched?: string[];
-	tool_calls_count?: number;
-	// Token usage
-	input_tokens?: number;
-	output_tokens?: number;
-	cache_read_tokens?: number;
-	cache_write_tokens?: number;
-	reasoning_tokens?: number;
-	// Cost and timing
-	cost_usd?: number;
-	duration_ms?: number;
-	// Git context
-	git_commit?: string;
-	[key: string]: unknown;
-}
-
-export interface ReasoningProperties extends Partial<BitemporalProperties> {
-	id: string;
-	content_hash: string;
-	preview: string;
-	blob_ref?: string;
-	reasoning_type?: string;
-	sequence_index: number;
-	embedding?: number[];
-	[key: string]: unknown;
-}
-
-export interface FileTouchProperties extends Partial<BitemporalProperties> {
-	id: string;
-	file_path: string;
-	action: string; // "read" | "edit" | "create" | "delete" | "list" | "search"
-	tool_call_id?: string; // Link to parent ToolCall for lineage
-	sequence_index?: number; // Order within turn's tool calls
-	diff_preview?: string;
-	lines_added?: number;
-	lines_removed?: number;
-	match_count?: number; // For grep/glob operations
-	matched_files?: string[]; // For glob results
-	[key: string]: unknown;
-}
-
-export interface ToolCallProperties extends Partial<BitemporalProperties> {
-	id: string;
-	call_id: string; // Provider ID (e.g. "toolu_01ABC...")
-	tool_name: string; // Original tool name
-	tool_type: string; // Categorized type (file_read, bash_exec, etc.)
-	arguments_json: string; // Full JSON arguments
-	arguments_preview?: string; // Truncated for display
-	status: string; // "pending" | "success" | "error" | "cancelled"
-	error_message?: string;
-	sequence_index: number; // Position within Turn's content blocks
-	reasoning_sequence?: number; // Index of triggering Reasoning block
-	[key: string]: unknown;
-}
-
-export interface ObservationProperties extends Partial<BitemporalProperties> {
-	id: string;
-	tool_call_id: string; // Reference to parent ToolCall
-	content: string; // Full result content
-	content_preview?: string; // Truncated for display
-	content_hash?: string; // SHA256 for deduplication
-	is_error: boolean;
-	error_type?: string; // e.g., "FileNotFound", "PermissionDenied"
-	execution_time_ms?: number;
-	[key: string]: unknown;
-}
-
-// =============================================================================
-// Domain Node Types (Convenience aliases)
-// =============================================================================
-
-export type SessionNode = FalkorNode<SessionProperties>;
-export type ThoughtNode = FalkorNode<ThoughtProperties>; // DEPRECATED
-export type TurnNode = FalkorNode<TurnProperties>;
-export type ReasoningNode = FalkorNode<ReasoningProperties>;
-export type FileTouchNode = FalkorNode<FileTouchProperties>;
-export type ToolCallNode = FalkorNode<ToolCallProperties>;
-export type ObservationNode = FalkorNode<ObservationProperties>;
-
-// =============================================================================
-// Query Result Types
-// =============================================================================
-
+/**
+ * Generic row type for FalkorDB query results
+ */
 export type FalkorRow<T = Record<string, unknown>> = T;
+
+/**
+ * Generic result type for FalkorDB queries
+ */
 export type FalkorResult<T = Record<string, unknown>> = FalkorRow<T>[];
 
-export class FalkorClient {
+// =============================================================================
+// FalkorDB Client Implementation
+// =============================================================================
+
+export class FalkorClient implements GraphClient {
 	private dbPromise;
 	private db: FalkorDB | null = null;
 	private graph: Graph | null = null;
 	private graphName = "EngramGraph";
+	private connected = false;
 
 	constructor(url: string = "redis://localhost:6379") {
 		const urlObj = new URL(url);
@@ -189,11 +87,16 @@ export class FalkorClient {
 		});
 	}
 
-	async connect() {
+	async connect(): Promise<void> {
 		if (!this.db) {
 			this.db = await this.dbPromise;
 			this.graph = this.db.selectGraph(this.graphName);
+			this.connected = true;
 		}
+	}
+
+	isConnected(): boolean {
+		return this.connected && this.db !== null;
 	}
 
 	/**
@@ -205,7 +108,7 @@ export class FalkorClient {
 	 *
 	 * @example
 	 * // Query returning session nodes
-	 * interface SessionRow { s: SessionNode }
+	 * interface SessionRow { s: FalkorNode }
 	 * const result = await falkor.query<SessionRow>('MATCH (s:Session) RETURN s');
 	 * result[0].s.properties.id; // typed as string
 	 *
@@ -221,13 +124,17 @@ export class FalkorClient {
 	): Promise<FalkorResult<T>> {
 		if (!this.graph) await this.connect();
 		// After connect(), graph is guaranteed to be set
-		const result = await this.graph?.query(cypher, { params });
+		// Use non-null assertion since we just ensured connection
+		const result = await this.graph!.query(cypher, { params });
 		return result.data as FalkorResult<T>;
 	}
 
-	async disconnect() {
+	async disconnect(): Promise<void> {
 		if (this.db) {
 			await this.db.close();
+			this.db = null;
+			this.graph = null;
+			this.connected = false;
 		}
 	}
 }
@@ -236,3 +143,157 @@ export const createFalkorClient = () => {
 	const url = process.env.FALKORDB_URL || "redis://localhost:6379";
 	return new FalkorClient(url);
 };
+
+// =============================================================================
+// DEPRECATED: Domain Types
+// =============================================================================
+// These types are deprecated and will be removed in a future version.
+// Import domain types from @engram/memory-core instead.
+// =============================================================================
+
+/**
+ * @deprecated Import BitemporalProperties from @engram/memory-core
+ */
+export interface BitemporalProperties {
+	vt_start: number;
+	vt_end: number;
+	tt_start: number;
+	tt_end: number;
+}
+
+/**
+ * @deprecated Import SessionNode from @engram/memory-core and use FalkorNode<SessionNode>
+ */
+export interface SessionProperties extends Partial<BitemporalProperties> {
+	id: string;
+	started_at?: number;
+	last_event_at?: number;
+	title?: string;
+	user_id?: string;
+	preview?: string;
+	working_dir?: string;
+	git_remote?: string;
+	agent_type?: string;
+	summary?: string;
+	embedding?: number[];
+	[key: string]: unknown;
+}
+
+/**
+ * @deprecated Use TurnProperties instead
+ */
+export interface ThoughtProperties extends Partial<BitemporalProperties> {
+	id: string;
+	type: string;
+	role: string;
+	content: string;
+	timestamp?: string;
+	preview?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * @deprecated Import TurnNode from @engram/memory-core and use FalkorNode<TurnNode>
+ */
+export interface TurnProperties extends Partial<BitemporalProperties> {
+	id: string;
+	user_content: string;
+	user_content_hash: string;
+	assistant_preview: string;
+	assistant_blob_ref?: string;
+	embedding?: number[];
+	sequence_index: number;
+	files_touched?: string[];
+	tool_calls_count?: number;
+	input_tokens?: number;
+	output_tokens?: number;
+	cache_read_tokens?: number;
+	cache_write_tokens?: number;
+	reasoning_tokens?: number;
+	cost_usd?: number;
+	duration_ms?: number;
+	git_commit?: string;
+	[key: string]: unknown;
+}
+
+/**
+ * @deprecated Import ReasoningNode from @engram/memory-core and use FalkorNode<ReasoningNode>
+ */
+export interface ReasoningProperties extends Partial<BitemporalProperties> {
+	id: string;
+	content_hash: string;
+	preview: string;
+	blob_ref?: string;
+	reasoning_type?: string;
+	sequence_index: number;
+	embedding?: number[];
+	[key: string]: unknown;
+}
+
+/**
+ * @deprecated Import FileTouchNode from @engram/memory-core and use FalkorNode<FileTouchNode>
+ */
+export interface FileTouchProperties extends Partial<BitemporalProperties> {
+	id: string;
+	file_path: string;
+	action: string;
+	tool_call_id?: string;
+	sequence_index?: number;
+	diff_preview?: string;
+	lines_added?: number;
+	lines_removed?: number;
+	match_count?: number;
+	matched_files?: string[];
+	[key: string]: unknown;
+}
+
+/**
+ * @deprecated Import ToolCallNode from @engram/memory-core and use FalkorNode<ToolCallNode>
+ */
+export interface ToolCallProperties extends Partial<BitemporalProperties> {
+	id: string;
+	call_id: string;
+	tool_name: string;
+	tool_type: string;
+	arguments_json: string;
+	arguments_preview?: string;
+	status: string;
+	error_message?: string;
+	sequence_index: number;
+	reasoning_sequence?: number;
+	[key: string]: unknown;
+}
+
+/**
+ * @deprecated Import ObservationNode from @engram/memory-core and use FalkorNode<ObservationNode>
+ */
+export interface ObservationProperties extends Partial<BitemporalProperties> {
+	id: string;
+	tool_call_id: string;
+	content: string;
+	content_preview?: string;
+	content_hash?: string;
+	is_error: boolean;
+	error_type?: string;
+	execution_time_ms?: number;
+	[key: string]: unknown;
+}
+
+// =============================================================================
+// DEPRECATED: Domain Node Aliases
+// =============================================================================
+
+/** @deprecated Import from @engram/memory-core */
+export type SessionNode = FalkorNode<SessionProperties>;
+/** @deprecated */
+export type ThoughtNode = FalkorNode<ThoughtProperties>;
+/** @deprecated Import from @engram/memory-core */
+export type TurnNode = FalkorNode<TurnProperties>;
+/** @deprecated Import from @engram/memory-core */
+export type ReasoningNode = FalkorNode<ReasoningProperties>;
+/** @deprecated Import from @engram/memory-core */
+export type FileTouchNode = FalkorNode<FileTouchProperties>;
+/** @deprecated Import from @engram/memory-core */
+export type ToolCallNode = FalkorNode<ToolCallProperties>;
+/** @deprecated Import from @engram/memory-core */
+export type ObservationNode = FalkorNode<ObservationProperties>;

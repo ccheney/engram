@@ -1,4 +1,5 @@
 import type { ParserStrategy, StreamDelta } from "./interface";
+import { ClineApiDataSchema, ClineSayEventSchema, ClineToolDataSchema } from "./schemas";
 
 /**
  * Parser for Cline CLI's `--output-format json` output.
@@ -13,16 +14,21 @@ import type { ParserStrategy, StreamDelta } from "./interface";
  */
 export class ClineParser implements ParserStrategy {
 	parse(payload: unknown): StreamDelta | null {
-		const p = payload as Record<string, unknown>;
-		const type = p.type as string;
-
-		// Only handle "say" type events
-		if (type !== "say") {
+		// Validate the outer event structure
+		const parseResult = ClineSayEventSchema.safeParse(payload);
+		if (!parseResult.success) {
 			return null;
 		}
 
-		const sayType = p.say as string;
-		const text = p.text as string | undefined;
+		const data = parseResult.data;
+
+		// Only handle "say" type events
+		if (data.type !== "say") {
+			return null;
+		}
+
+		const sayType = data.say;
+		const text = data.text;
 
 		// Handle text events (assistant content)
 		if (sayType === "text") {
@@ -38,9 +44,14 @@ export class ClineParser implements ParserStrategy {
 		// Handle api_req_started events (contains usage info with cache metrics and cost)
 		if (sayType === "api_req_started" && text) {
 			try {
-				const apiData = JSON.parse(text) as Record<string, unknown>;
-				const tokensIn = (apiData.tokensIn as number) || 0;
-				const tokensOut = (apiData.tokensOut as number) || 0;
+				const parsedApiData = JSON.parse(text);
+				const apiResult = ClineApiDataSchema.safeParse(parsedApiData);
+				if (!apiResult.success) {
+					return null;
+				}
+				const apiData = apiResult.data;
+				const tokensIn = apiData.tokensIn || 0;
+				const tokensOut = apiData.tokensOut || 0;
 
 				// Only return usage if we have actual token counts
 				if (tokensIn === 0 && tokensOut === 0) return null;
@@ -50,14 +61,14 @@ export class ClineParser implements ParserStrategy {
 					usage: {
 						input: tokensIn,
 						output: tokensOut,
-						cacheRead: (apiData.cacheReads as number) || 0,
-						cacheWrite: (apiData.cacheWrites as number) || 0,
+						cacheRead: apiData.cacheReads || 0,
+						cacheWrite: apiData.cacheWrites || 0,
 					},
 				};
 
 				// Extract cost if present
 				if (apiData.cost !== undefined && apiData.cost !== 0) {
-					delta.cost = apiData.cost as number;
+					delta.cost = apiData.cost;
 				}
 
 				return delta;
@@ -70,9 +81,14 @@ export class ClineParser implements ParserStrategy {
 		// Handle api_req_finished events (also contains usage info with cache and cost)
 		if (sayType === "api_req_finished" && text) {
 			try {
-				const apiData = JSON.parse(text) as Record<string, unknown>;
-				const tokensIn = (apiData.tokensIn as number) || 0;
-				const tokensOut = (apiData.tokensOut as number) || 0;
+				const parsedApiData = JSON.parse(text);
+				const apiResult = ClineApiDataSchema.safeParse(parsedApiData);
+				if (!apiResult.success) {
+					return null;
+				}
+				const apiData = apiResult.data;
+				const tokensIn = apiData.tokensIn || 0;
+				const tokensOut = apiData.tokensOut || 0;
 
 				// Only return usage if we have actual token counts
 				if (tokensIn === 0 && tokensOut === 0) return null;
@@ -82,14 +98,14 @@ export class ClineParser implements ParserStrategy {
 					usage: {
 						input: tokensIn,
 						output: tokensOut,
-						cacheRead: (apiData.cacheReads as number) || 0,
-						cacheWrite: (apiData.cacheWrites as number) || 0,
+						cacheRead: apiData.cacheReads || 0,
+						cacheWrite: apiData.cacheWrites || 0,
 					},
 				};
 
 				// Extract cost if present
 				if (apiData.cost !== undefined && apiData.cost !== 0) {
-					delta.cost = apiData.cost as number;
+					delta.cost = apiData.cost;
 				}
 
 				return delta;
@@ -101,14 +117,19 @@ export class ClineParser implements ParserStrategy {
 		// Handle tool events
 		if (sayType === "tool" && text) {
 			try {
-				const toolData = JSON.parse(text) as Record<string, unknown>;
-				const tool = (toolData.tool as string) || "";
-				const toolInput = toolData.input as Record<string, unknown> | undefined;
+				const parsedToolData = JSON.parse(text);
+				const toolResult = ClineToolDataSchema.safeParse(parsedToolData);
+				if (!toolResult.success) {
+					return null;
+				}
+				const toolData = toolResult.data;
+				const tool = toolData.tool || "";
+				const toolInput = toolData.input;
 
 				return {
 					type: "tool_call",
 					toolCall: {
-						id: (toolData.id as string) || "",
+						id: toolData.id || "",
 						name: tool,
 						args: toolInput ? JSON.stringify(toolInput) : "{}",
 						index: 0,

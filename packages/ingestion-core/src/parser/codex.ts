@@ -1,4 +1,11 @@
 import type { ParserStrategy, StreamDelta } from "./interface";
+import {
+	CodexItemCompletedSchema,
+	CodexItemStartedSchema,
+	CodexThreadStartedSchema,
+	CodexTurnCompletedSchema,
+	CodexTurnStartedSchema,
+} from "./schemas";
 
 /**
  * Parser for OpenAI Codex CLI's `--json` output format.
@@ -22,17 +29,21 @@ export class CodexParser implements ParserStrategy {
 
 		// Handle item.completed events (main content events)
 		if (type === "item.completed") {
-			const item = p.item as Record<string, unknown> | undefined;
+			const parseResult = CodexItemCompletedSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const item = parseResult.data.item;
 			if (!item) return null;
 
-			const itemType = item.type as string;
+			const itemType = item.type;
 
 			// Agent message - final text content
 			if (itemType === "agent_message") {
 				return {
 					type: "content",
 					role: "assistant",
-					content: item.text as string,
+					content: item.text,
 				};
 			}
 
@@ -40,16 +51,16 @@ export class CodexParser implements ParserStrategy {
 			if (itemType === "reasoning") {
 				return {
 					type: "thought",
-					thought: item.text as string,
+					thought: item.text,
 				};
 			}
 
 			// Command execution - tool call
 			if (itemType === "command_execution") {
-				const command = item.command as string;
-				const output = item.aggregated_output as string;
-				const exitCode = item.exit_code as number | null;
-				const status = item.status as string;
+				const command = item.command;
+				const output = item.aggregated_output;
+				const exitCode = item.exit_code;
+				const status = item.status;
 
 				// For completed commands, return the result
 				if (status === "completed") {
@@ -63,7 +74,7 @@ export class CodexParser implements ParserStrategy {
 				return {
 					type: "tool_call",
 					toolCall: {
-						id: item.id as string,
+						id: item.id,
 						name: "shell",
 						args: JSON.stringify({ command }),
 						index: 0,
@@ -76,17 +87,21 @@ export class CodexParser implements ParserStrategy {
 
 		// Handle item.started events (for streaming/in-progress state)
 		if (type === "item.started") {
-			const item = p.item as Record<string, unknown> | undefined;
+			const parseResult = CodexItemStartedSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const item = parseResult.data.item;
 			if (!item) return null;
 
-			const itemType = item.type as string;
+			const itemType = item.type;
 
 			// Command execution starting
 			if (itemType === "command_execution") {
 				return {
 					type: "tool_call",
 					toolCall: {
-						id: item.id as string,
+						id: item.id,
 						name: "shell",
 						args: JSON.stringify({ command: item.command }),
 						index: 0,
@@ -99,22 +114,30 @@ export class CodexParser implements ParserStrategy {
 
 		// Handle turn.completed events (usage stats with cached tokens)
 		if (type === "turn.completed") {
-			const usage = p.usage as Record<string, unknown> | undefined;
+			const parseResult = CodexTurnCompletedSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const usage = parseResult.data.usage;
 			if (!usage) return null;
 
 			return {
 				type: "usage",
 				usage: {
-					input: (usage.input_tokens as number) || 0,
-					output: (usage.output_tokens as number) || 0,
-					cacheRead: (usage.cached_input_tokens as number) || 0,
+					input: usage.input_tokens || 0,
+					output: usage.output_tokens || 0,
+					cacheRead: usage.cached_input_tokens || 0,
 				},
 			};
 		}
 
 		// Handle thread.started events (session info)
 		if (type === "thread.started") {
-			const threadId = p.thread_id as string;
+			const parseResult = CodexThreadStartedSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const threadId = parseResult.data.thread_id;
 			return {
 				type: "content",
 				content: `[Thread Started: ${threadId}]`,
@@ -124,6 +147,10 @@ export class CodexParser implements ParserStrategy {
 
 		// Handle turn.started events
 		if (type === "turn.started") {
+			const parseResult = CodexTurnStartedSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
 			return {
 				type: "content",
 				content: "[Turn Started]",

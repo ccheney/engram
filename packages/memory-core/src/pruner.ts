@@ -1,4 +1,4 @@
-import type { BlobStore, FalkorClient } from "@engram/storage";
+import type { BlobStore, FalkorClient, GraphClient } from "@engram/storage";
 import { now } from "./utils/time";
 
 interface PruneResult {
@@ -21,10 +21,16 @@ const DEFAULT_BATCH_SIZE = 1000;
 const DEFAULT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export class GraphPruner {
-	constructor(
-		private client: FalkorClient,
-		private archiveStore?: BlobStore,
-	) {}
+	private client: GraphClient;
+	private archiveStore?: BlobStore;
+
+	constructor(client: GraphClient, archiveStore?: BlobStore);
+	/** @deprecated Use GraphClient interface instead */
+	constructor(client: FalkorClient, archiveStore?: BlobStore);
+	constructor(client: GraphClient | FalkorClient, archiveStore?: BlobStore) {
+		this.client = client as GraphClient;
+		this.archiveStore = archiveStore;
+	}
 
 	/**
 	 * Prune old transaction history.

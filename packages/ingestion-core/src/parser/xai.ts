@@ -1,16 +1,21 @@
 import type { StreamDelta } from "./interface";
 import { OpenAIParser } from "./openai";
+import { XAIChunkSchema } from "./schemas";
 
 export class XAIParser extends OpenAIParser {
 	override parse(payload: unknown): StreamDelta | null {
 		// First, use the base OpenAI parsing
 		let result = super.parse(payload);
 
-		// If base parser found nothing, start with empty object if we have a delta
-		const p = payload as Record<string, unknown>;
-		const choices = p.choices as Array<Record<string, unknown>> | undefined;
-		const choice = choices?.[0];
-		const delta = choice?.delta as Record<string, unknown> | undefined;
+		// Validate with xAI-specific schema to extract reasoning_content
+		const parseResult = XAIChunkSchema.safeParse(payload);
+		if (!parseResult.success) {
+			return result;
+		}
+
+		const p = parseResult.data;
+		const choice = p.choices?.[0];
+		const delta = choice?.delta;
 
 		if (!result && delta) {
 			result = {};
@@ -21,7 +26,7 @@ export class XAIParser extends OpenAIParser {
 		if (delta) {
 			// Check for reasoning_content (Grok 3 Mini / Reasoning models)
 			if (delta.reasoning_content) {
-				result.thought = delta.reasoning_content as string;
+				result.thought = delta.reasoning_content;
 				result.type = "thought";
 			}
 		}

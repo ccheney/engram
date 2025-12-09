@@ -7,6 +7,7 @@ import { Suspense, useCallback, useState } from "react";
 import { EngramLogo } from "../../components/EngramLogo";
 import { LineageGraph } from "../../components/LineageGraph";
 import { SessionReplay } from "../../components/SessionReplay";
+import { Particles } from "../../components/shared";
 import { useSessionStream } from "../../hooks/useSessionStream";
 
 // Dynamically import Three.js background to avoid SSR issues
@@ -14,48 +15,6 @@ const NeuralBackground = dynamic(
 	() => import("../../components/NeuralBackground").then((mod) => mod.NeuralBackground),
 	{ ssr: false },
 );
-
-// Pre-computed particle positions to avoid hydration mismatch
-const PARTICLE_DATA = [
-	{ x: 12, y: 85, size: 1.5, duration: 22, delay: 3, opacity: 0.25 },
-	{ x: 45, y: 15, size: 2.2, duration: 28, delay: 7, opacity: 0.32 },
-	{ x: 78, y: 42, size: 1.8, duration: 19, delay: 1, opacity: 0.28 },
-	{ x: 23, y: 67, size: 2.5, duration: 31, delay: 5, opacity: 0.35 },
-	{ x: 91, y: 23, size: 1.2, duration: 25, delay: 9, opacity: 0.22 },
-	{ x: 56, y: 89, size: 2.0, duration: 17, delay: 2, opacity: 0.3 },
-	{ x: 34, y: 34, size: 1.6, duration: 33, delay: 6, opacity: 0.27 },
-	{ x: 67, y: 56, size: 2.8, duration: 21, delay: 4, opacity: 0.38 },
-	{ x: 8, y: 12, size: 1.3, duration: 29, delay: 8, opacity: 0.24 },
-	{ x: 89, y: 78, size: 2.3, duration: 16, delay: 0, opacity: 0.33 },
-	{ x: 41, y: 91, size: 1.9, duration: 27, delay: 3, opacity: 0.29 },
-	{ x: 72, y: 8, size: 2.6, duration: 23, delay: 7, opacity: 0.36 },
-	{ x: 15, y: 45, size: 1.4, duration: 32, delay: 1, opacity: 0.26 },
-	{ x: 58, y: 62, size: 2.1, duration: 18, delay: 5, opacity: 0.31 },
-	{ x: 95, y: 95, size: 1.7, duration: 26, delay: 9, opacity: 0.23 },
-];
-
-// Animated background particles (lighter version for session view)
-function Particles() {
-	return (
-		<div className="particles">
-			{PARTICLE_DATA.map((p, i) => (
-				<div
-					key={i}
-					className="particle"
-					style={{
-						left: `${p.x}%`,
-						top: `${p.y}%`,
-						width: `${p.size}px`,
-						height: `${p.size}px`,
-						animation: `float ${p.duration}s ease-in-out infinite`,
-						animationDelay: `${p.delay}s`,
-						opacity: p.opacity,
-					}}
-				/>
-			))}
-		</div>
-	);
-}
 
 export function SessionView({ sessionId }: { sessionId: string }) {
 	// Use real-time WebSocket streaming with polling fallback
@@ -88,7 +47,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 				<Suspense fallback={null}>
 					<NeuralBackground />
 				</Suspense>
-				<Particles />
+				<Particles count={15} precomputed />
 			</div>
 
 			{/* Header - Glassmorphism with EngramLogo */}

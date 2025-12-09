@@ -12,7 +12,6 @@
 	"dependencies": {
 		"zod": "^4.1.13",
 		"ulid": "^3.0.2",
-		"date-fns": "^4.1.0",
 		"@engram/storage": "*"
 	},
 	"scripts": {

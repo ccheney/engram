@@ -19,7 +19,6 @@
 	"dependencies": {
 		"@google-cloud/storage": "^7.14.0",
 		"falkordb": "^6.3.1",
-		"kafkajs": "^2.2.4",
 		"redis": "^5.10.0"
 	},
 	"scripts": {

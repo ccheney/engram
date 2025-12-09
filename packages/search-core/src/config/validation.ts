@@ -1,34 +1,37 @@
 import { z } from "zod";
 import type { RerankerTier } from "../models/schema";
-import type { RerankerConfig } from "./reranker-config";
+import type { RerankerConfig } from "./index";
 
 /**
  * Zod schema for TierConfig validation.
+ * Uses passthrough to allow additional fields like maxLatencyMs.
  */
-const TierConfigSchema = z.object({
-	model: z.string().min(1, "Model name cannot be empty"),
-	maxCandidates: z
-		.number()
-		.int()
-		.positive("maxCandidates must be positive")
-		.max(1000, "maxCandidates cannot exceed 1000"),
-	batchSize: z
-		.number()
-		.int()
-		.positive("batchSize must be positive")
-		.max(128, "batchSize cannot exceed 128"),
-	enabled: z.boolean(),
-});
+const TierConfigSchema = z
+	.object({
+		model: z.string().min(1, "Model name cannot be empty"),
+		maxCandidates: z
+			.number()
+			.int()
+			.positive("maxCandidates must be positive")
+			.max(1000, "maxCandidates cannot exceed 1000"),
+		batchSize: z
+			.number()
+			.int()
+			.positive("batchSize must be positive")
+			.max(128, "batchSize cannot exceed 128"),
+		enabled: z.boolean(),
+	})
+	.passthrough();
 
 /**
  * Zod schema for RoutingConfig validation.
  */
 const RoutingConfigSchema = z.object({
-	complexityThreshold: z
+	complexThreshold: z
 		.number()
 		.int()
-		.min(0, "complexityThreshold must be non-negative")
-		.max(1000, "complexityThreshold cannot exceed 1000"),
+		.min(0, "complexThreshold must be non-negative")
+		.max(1000, "complexThreshold cannot exceed 1000"),
 	codePatternWeight: z
 		.number()
 		.min(0, "codePatternWeight must be at least 0")
@@ -44,25 +47,28 @@ const RoutingConfigSchema = z.object({
 
 /**
  * Zod schema for CacheConfig validation.
+ * Uses passthrough to allow additional cache-related fields.
  */
-const CacheConfigSchema = z.object({
-	embeddingCacheMaxSize: z
-		.number()
-		.int()
-		.positive("embeddingCacheMaxSize must be positive")
-		.max(1000000, "embeddingCacheMaxSize cannot exceed 1,000,000"),
-	embeddingCacheTTLMs: z
-		.number()
-		.int()
-		.positive("embeddingCacheTTLMs must be positive")
-		.max(86400000, "embeddingCacheTTLMs cannot exceed 24 hours"),
-	queryCacheTTLMs: z
-		.number()
-		.int()
-		.positive("queryCacheTTLMs must be positive")
-		.max(3600000, "queryCacheTTLMs cannot exceed 1 hour"),
-	queryCacheEnabled: z.boolean(),
-});
+const CacheConfigSchema = z
+	.object({
+		embeddingCacheMaxSize: z
+			.number()
+			.int()
+			.positive("embeddingCacheMaxSize must be positive")
+			.max(1000000, "embeddingCacheMaxSize cannot exceed 1,000,000"),
+		embeddingCacheTTLMs: z
+			.number()
+			.int()
+			.positive("embeddingCacheTTLMs must be positive")
+			.max(86400000, "embeddingCacheTTLMs cannot exceed 24 hours"),
+		queryCacheTTLMs: z
+			.number()
+			.int()
+			.positive("queryCacheTTLMs must be positive")
+			.max(3600000, "queryCacheTTLMs cannot exceed 1 hour"),
+		queryCacheEnabled: z.boolean(),
+	})
+	.passthrough();
 
 /**
  * Zod schema for RateLimitConfig validation.
@@ -98,26 +104,29 @@ const ABTestingConfigSchema = z.object({
 
 /**
  * Complete Zod schema for RerankerConfig validation.
+ * Uses passthrough to allow additional fields like depth.
  */
-const RerankerConfigSchema = z.object({
-	enabled: z.boolean(),
-	defaultTier: z.enum(["fast", "accurate", "code", "llm"]),
-	timeoutMs: z
-		.number()
-		.int()
-		.positive("timeoutMs must be positive")
-		.max(30000, "timeoutMs cannot exceed 30 seconds"),
-	tiers: z.object({
-		fast: TierConfigSchema,
-		accurate: TierConfigSchema,
-		code: TierConfigSchema,
-		llm: TierConfigSchema,
-	}),
-	routing: RoutingConfigSchema,
-	cache: CacheConfigSchema,
-	rateLimit: RateLimitConfigSchema,
-	abTesting: ABTestingConfigSchema,
-});
+const RerankerConfigSchema = z
+	.object({
+		enabled: z.boolean(),
+		defaultTier: z.enum(["fast", "accurate", "code", "llm"]),
+		timeoutMs: z
+			.number()
+			.int()
+			.positive("timeoutMs must be positive")
+			.max(30000, "timeoutMs cannot exceed 30 seconds"),
+		tiers: z.object({
+			fast: TierConfigSchema,
+			accurate: TierConfigSchema,
+			code: TierConfigSchema,
+			llm: TierConfigSchema,
+		}),
+		routing: RoutingConfigSchema,
+		cache: CacheConfigSchema,
+		rateLimit: RateLimitConfigSchema,
+		abTesting: ABTestingConfigSchema,
+	})
+	.passthrough();
 
 /**
  * Validation error details.

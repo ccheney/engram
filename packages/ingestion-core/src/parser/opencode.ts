@@ -1,4 +1,10 @@
 import type { ParserStrategy, StreamDelta } from "./interface";
+import {
+	OpenCodeStepFinishEventSchema,
+	OpenCodeStepStartEventSchema,
+	OpenCodeTextEventSchema,
+	OpenCodeToolUseEventSchema,
+} from "./schemas";
 
 /**
  * Parser for SST OpenCode CLI's `--format json` output.
@@ -16,10 +22,15 @@ export class OpenCodeParser implements ParserStrategy {
 
 		// Handle text events (assistant content)
 		if (type === "text") {
-			const part = p.part as Record<string, unknown> | undefined;
+			const parseResult = OpenCodeTextEventSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const part = data.part;
 			if (!part) return null;
 
-			const text = part.text as string;
+			const text = part.text;
 			if (!text) return null;
 
 			const delta: StreamDelta = {
@@ -29,18 +40,18 @@ export class OpenCodeParser implements ParserStrategy {
 			};
 
 			// Extract timing from part.time
-			const time = part.time as Record<string, unknown> | undefined;
+			const time = part.time;
 			if (time) {
 				delta.timing = {
-					start: time.start as number,
-					end: time.end as number,
+					start: time.start,
+					end: time.end,
 				};
 			}
 
 			// Extract session info
-			const sessionID = p.sessionID as string | undefined;
-			const messageID = (part.messageID as string) || undefined;
-			const partId = part.id as string | undefined;
+			const sessionID = data.sessionID;
+			const messageID = part.messageID || undefined;
+			const partId = part.id;
 			if (sessionID || messageID || partId) {
 				delta.session = {
 					id: sessionID,
@@ -54,15 +65,20 @@ export class OpenCodeParser implements ParserStrategy {
 
 		// Handle tool_use events
 		if (type === "tool_use") {
-			const part = p.part as Record<string, unknown> | undefined;
+			const parseResult = OpenCodeToolUseEventSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const part = data.part;
 			if (!part) return null;
 
-			const callID = part.callID as string;
-			const tool = part.tool as string;
-			const state = part.state as Record<string, unknown> | undefined;
+			const callID = part.callID;
+			const tool = part.tool;
+			const state = part.state;
 
 			// Extract input parameters from state
-			const input = state?.input as Record<string, unknown> | undefined;
+			const input = state?.input;
 
 			return {
 				type: "tool_call",
@@ -77,49 +93,54 @@ export class OpenCodeParser implements ParserStrategy {
 
 		// Handle step_finish events with token usage, cost, git snapshot
 		if (type === "step_finish") {
-			const part = p.part as Record<string, unknown> | undefined;
+			const parseResult = OpenCodeStepFinishEventSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const part = data.part;
 			if (!part) return null;
 
-			const tokens = part.tokens as Record<string, unknown> | undefined;
+			const tokens = part.tokens;
 			if (!tokens) return null;
 
-			const inputTokens = (tokens.input as number) || 0;
-			const outputTokens = (tokens.output as number) || 0;
+			const inputTokens = tokens.input || 0;
+			const outputTokens = tokens.output || 0;
 
 			// Only return usage if we have actual token counts
 			if (inputTokens === 0 && outputTokens === 0) return null;
 
-			const cache = tokens.cache as Record<string, unknown> | undefined;
+			const cache = tokens.cache;
 			const delta: StreamDelta = {
 				type: "usage",
 				usage: {
 					input: inputTokens,
 					output: outputTokens,
-					reasoning: (tokens.reasoning as number) || 0,
-					cacheRead: cache?.read as number,
-					cacheWrite: cache?.write as number,
+					reasoning: tokens.reasoning || 0,
+					cacheRead: cache?.read,
+					cacheWrite: cache?.write,
 				},
 			};
 
 			// Extract cost
 			if (part.cost !== undefined) {
-				delta.cost = part.cost as number;
+				delta.cost = part.cost;
 			}
 
 			// Extract git snapshot
 			if (part.snapshot) {
-				delta.gitSnapshot = part.snapshot as string;
+				delta.gitSnapshot = part.snapshot;
 			}
 
 			// Extract stop reason
 			if (part.reason) {
-				delta.stopReason = part.reason as string;
+				delta.stopReason = part.reason;
 			}
 
 			// Extract session info
-			const sessionID = p.sessionID as string | undefined;
-			const messageID = (part.messageID as string) || undefined;
-			const partId = part.id as string | undefined;
+			const sessionID = data.sessionID;
+			const messageID = part.messageID || undefined;
+			const partId = part.id;
 			if (sessionID || messageID || partId) {
 				delta.session = {
 					id: sessionID,
@@ -133,6 +154,10 @@ export class OpenCodeParser implements ParserStrategy {
 
 		// Handle step_start events (optional: could log for debugging)
 		if (type === "step_start") {
+			const parseResult = OpenCodeStepStartEventSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
 			// We could emit session info here, but it's not critical
 			// Just skip for now like Gemini does
 			return null;

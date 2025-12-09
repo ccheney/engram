@@ -1,26 +1,58 @@
 import { AutoModel, AutoTokenizer, type Tensor } from "@huggingface/transformers";
+import { BaseSparseEmbedder, type EmbedderConfig, type SparseVector } from "./base-embedder";
+
+/**
+ * Configuration for SpladeEmbedder.
+ */
+export interface SpladeEmbedderConfig extends EmbedderConfig {
+	/** Maximum sequence length (default: 512) */
+	maxLength?: number;
+	/** Model precision */
+	dtype?: "fp32" | "fp16";
+	/** Threshold for filtering near-zero values */
+	sparseThreshold?: number;
+}
+
+const DEFAULT_CONFIG: SpladeEmbedderConfig = {
+	model: "sparse-encoder-testing/splade-bert-tiny-nq-onnx",
+	dimensions: 30522, // BERT vocabulary size
+	maxLength: 512,
+	dtype: "fp32",
+	sparseThreshold: 1e-6,
+};
 
 /**
  * SPLADE sparse embedder using ONNX model.
+ * Extends BaseSparseEmbedder for sparse vector output.
+ *
  * Generates learned sparse representations for hybrid search.
  *
  * SPLADE (Sparse Lexical and Expansion Model) learns to expand queries/documents
  * with semantically related terms while producing sparse vectors compatible with
  * inverted index retrieval.
  */
-export class SpladeEmbedder {
-	// Model configuration
-	private static readonly MODEL_NAME = "sparse-encoder-testing/splade-bert-tiny-nq-onnx";
-
+export class SpladeEmbedder extends BaseSparseEmbedder<SpladeEmbedderConfig> {
 	// Singleton instances (lazy loaded)
 	private static model: Awaited<ReturnType<typeof AutoModel.from_pretrained>> | null = null;
-	private static tokenizer: Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>> | null = null;
+	private static tokenizer: Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>> | null =
+		null;
 	private static modelPromise: Promise<
 		Awaited<ReturnType<typeof AutoModel.from_pretrained>>
 	> | null = null;
 	private static tokenizerPromise: Promise<
 		Awaited<ReturnType<typeof AutoTokenizer.from_pretrained>>
 	> | null = null;
+
+	constructor(config: Partial<SpladeEmbedderConfig> = {}) {
+		super({ ...DEFAULT_CONFIG, ...config });
+	}
+
+	/**
+	 * Load the model and tokenizer (for preloading).
+	 */
+	protected async loadModel(): Promise<void> {
+		await Promise.all([this.getModel(), this.getTokenizer()]);
+	}
 
 	/**
 	 * Get or initialize the ONNX model.
@@ -31,8 +63,8 @@ export class SpladeEmbedder {
 			return SpladeEmbedder.model;
 		}
 		if (!SpladeEmbedder.modelPromise) {
-			SpladeEmbedder.modelPromise = AutoModel.from_pretrained(SpladeEmbedder.MODEL_NAME, {
-				dtype: "fp32",
+			SpladeEmbedder.modelPromise = AutoModel.from_pretrained(this.config.model, {
+				dtype: this.config.dtype,
 			});
 		}
 		SpladeEmbedder.model = await SpladeEmbedder.modelPromise;
@@ -47,7 +79,7 @@ export class SpladeEmbedder {
 			return SpladeEmbedder.tokenizer;
 		}
 		if (!SpladeEmbedder.tokenizerPromise) {
-			SpladeEmbedder.tokenizerPromise = AutoTokenizer.from_pretrained(SpladeEmbedder.MODEL_NAME);
+			SpladeEmbedder.tokenizerPromise = AutoTokenizer.from_pretrained(this.config.model);
 		}
 		SpladeEmbedder.tokenizer = await SpladeEmbedder.tokenizerPromise;
 		return SpladeEmbedder.tokenizer;
@@ -64,10 +96,7 @@ export class SpladeEmbedder {
 	 * @param attentionMask - Attention mask tensor of shape [batch, seq_len]
 	 * @returns Sparse vector as {indices, values} for Qdrant
 	 */
-	private spladePooling(
-		logits: Tensor,
-		attentionMask: Tensor,
-	): { indices: number[]; values: number[] } {
+	private spladePooling(logits: Tensor, attentionMask: Tensor): SparseVector {
 		// Get dimensions
 		const logitsData = logits.data as Float32Array;
 		const maskData = attentionMask.data as BigInt64Array | Float32Array | Int32Array;
@@ -99,7 +128,7 @@ export class SpladeEmbedder {
 
 		// Convert to sparse format - only keep non-zero values
 		const indexValuePairs: Array<[number, number]> = [];
-		const threshold = 1e-6; // Small threshold to filter out near-zero values
+		const threshold = this.config.sparseThreshold ?? 1e-6;
 
 		for (let v = 0; v < vocabSize; v++) {
 			const value = pooled[v];
@@ -124,14 +153,14 @@ export class SpladeEmbedder {
 	 * @param text - Input text to embed
 	 * @returns Sparse vector in Qdrant format
 	 */
-	async embed(text: string): Promise<{ indices: number[]; values: number[] }> {
+	async embed(text: string): Promise<SparseVector> {
 		const [model, tokenizer] = await Promise.all([this.getModel(), this.getTokenizer()]);
 
 		// Tokenize input
 		const encoded = tokenizer(text, {
 			padding: true,
 			truncation: true,
-			max_length: 512,
+			max_length: this.config.maxLength,
 			return_tensors: "pt",
 		});
 
@@ -150,7 +179,7 @@ export class SpladeEmbedder {
 	 * @param text - Query text to embed
 	 * @returns Sparse vector in Qdrant format
 	 */
-	async embedQuery(text: string): Promise<{ indices: number[]; values: number[] }> {
+	async embedQuery(text: string): Promise<SparseVector> {
 		return this.embed(text);
 	}
 
@@ -159,13 +188,5 @@ export class SpladeEmbedder {
 	 */
 	isReady(): boolean {
 		return SpladeEmbedder.model !== null && SpladeEmbedder.tokenizer !== null;
-	}
-
-	/**
-	 * Preload the model and tokenizer.
-	 * Call this at startup to warm up the model cache.
-	 */
-	async preload(): Promise<void> {
-		await Promise.all([this.getModel(), this.getTokenizer()]);
 	}
 }

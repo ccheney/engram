@@ -10,6 +10,7 @@
 		"@engram/tsconfig": "*"
 	},
 	"dependencies": {
+		"@engram/common": "*",
 		"@engram/logger": "*",
 		"@huggingface/transformers": "^3.8.1",
 		"@qdrant/js-client-rest": "^1.16.2",

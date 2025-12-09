@@ -9,8 +9,19 @@ export class PatchManager {
 		let originalContent = "";
 		try {
 			originalContent = this.vfs.readFile(filePath);
-		} catch (_e) {
-			// File might not exist (creation patch)
+		} catch (e) {
+			// File not existing is expected for creation patches
+			// Check if this is a "file not found" error vs an unexpected error
+			const isNotFoundError =
+				e instanceof Error &&
+				(e.message.includes("not found") ||
+					e.message.includes("ENOENT") ||
+					e.message.includes("does not exist"));
+			if (!isNotFoundError) {
+				// Rethrow unexpected errors (permissions, corruption, etc.)
+				throw e;
+			}
+			// File doesn't exist - this is a creation patch, continue with empty content
 		}
 
 		// 2. Parse Diff (assuming 'diffContent' is the full unified diff string)

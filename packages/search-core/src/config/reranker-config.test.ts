@@ -6,7 +6,7 @@ import {
 	DEFAULT_RERANKER_CONFIG,
 	DEFAULT_ROUTING_CONFIG,
 	DEFAULT_TIER_CONFIGS,
-} from "./reranker-config";
+} from "./index";
 
 describe("reranker-config", () => {
 	describe("DEFAULT_TIER_CONFIGS", () => {
@@ -64,7 +64,7 @@ describe("reranker-config", () => {
 
 	describe("DEFAULT_ROUTING_CONFIG", () => {
 		test("should have valid routing thresholds", () => {
-			expect(DEFAULT_ROUTING_CONFIG.complexityThreshold).toBe(50);
+			expect(DEFAULT_ROUTING_CONFIG.complexThreshold).toBe(50);
 			expect(DEFAULT_ROUTING_CONFIG.codePatternWeight).toBe(0.8);
 			expect(DEFAULT_ROUTING_CONFIG.latencyBudgetDefault).toBe(500);
 		});

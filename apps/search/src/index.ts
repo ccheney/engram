@@ -1,14 +1,86 @@
 import { createServer } from "node:http";
+import { type Logger, createNodeLogger } from "@engram/logger";
 import { SchemaManager, SearchIndexer, SearchRetriever } from "@engram/search-core";
 import { createKafkaClient } from "@engram/storage";
 
+/**
+ * Dependencies for SearchService construction.
+ * Supports dependency injection for testability.
+ */
+export interface SearchServiceDeps {
+	/** Search retriever for query execution. Defaults to new SearchRetriever. */
+	retriever?: SearchRetriever;
+	/** Search indexer for indexing nodes. Defaults to new SearchIndexer. */
+	indexer?: SearchIndexer;
+	/** Schema manager for collection management. Defaults to new SchemaManager. */
+	schemaManager?: SchemaManager;
+	/** Kafka client for event streaming. */
+	kafkaClient?: ReturnType<typeof createKafkaClient>;
+	/** Logger instance. */
+	logger?: Logger;
+}
+
 export class SearchService {
+	private retriever: SearchRetriever;
+	private indexer: SearchIndexer;
+	private schemaManager: SchemaManager;
+	private kafkaClient: ReturnType<typeof createKafkaClient>;
+	private logger: Logger;
+
+	/**
+	 * Create a SearchService with injectable dependencies.
+	 * @param deps - Optional dependencies. Defaults are used when not provided.
+	 */
+	constructor(deps?: SearchServiceDeps);
+	/** @deprecated Use SearchServiceDeps object instead */
 	constructor(
-		private retriever: SearchRetriever,
-		private indexer: SearchIndexer,
-		private schemaManager: SchemaManager,
-		private kafkaClient: any,
-	) {}
+		retriever: SearchRetriever,
+		indexer: SearchIndexer,
+		schemaManager: SchemaManager,
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		kafkaClient: any,
+	);
+	constructor(
+		depsOrRetriever?: SearchServiceDeps | SearchRetriever,
+		indexerArg?: SearchIndexer,
+		schemaManagerArg?: SchemaManager,
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		kafkaClientArg?: any,
+	) {
+		if (depsOrRetriever === undefined || (typeof depsOrRetriever === "object" && "retriever" in depsOrRetriever === false && "search" in depsOrRetriever === false && indexerArg === undefined)) {
+			// New deps object constructor or empty
+			const deps = (depsOrRetriever ?? {}) as SearchServiceDeps;
+			this.retriever = deps.retriever ?? new SearchRetriever();
+			this.indexer = deps.indexer ?? new SearchIndexer();
+			this.schemaManager = deps.schemaManager ?? new SchemaManager();
+			this.kafkaClient = deps.kafkaClient ?? createKafkaClient("search-service");
+			this.logger = deps.logger ?? createNodeLogger({
+				service: "search-service",
+				base: { component: "main" },
+			});
+		} else if ("search" in depsOrRetriever && typeof (depsOrRetriever as SearchRetriever).search === "function") {
+			// Legacy constructor: positional args
+			this.retriever = depsOrRetriever as SearchRetriever;
+			this.indexer = indexerArg!;
+			this.schemaManager = schemaManagerArg!;
+			this.kafkaClient = kafkaClientArg!;
+			this.logger = createNodeLogger({
+				service: "search-service",
+				base: { component: "main" },
+			});
+		} else {
+			// Deps object
+			const deps = depsOrRetriever as SearchServiceDeps;
+			this.retriever = deps.retriever ?? new SearchRetriever();
+			this.indexer = deps.indexer ?? new SearchIndexer();
+			this.schemaManager = deps.schemaManager ?? new SchemaManager();
+			this.kafkaClient = deps.kafkaClient ?? createKafkaClient("search-service");
+			this.logger = deps.logger ?? createNodeLogger({
+				service: "search-service",
+				base: { component: "main" },
+			});
+		}
+	}
 
 	async initialize() {
 		await this.schemaManager.ensureCollection();
@@ -25,8 +97,11 @@ export class SearchService {
 				partition: _partition,
 				message,
 			}: {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				topic: any;
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				partition: any;
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				message: any;
 			}) => {
 				try {
@@ -40,10 +115,10 @@ export class SearchService {
 							node.labels.includes("Turn"))
 					) {
 						await this.indexer.indexNode(node);
-						console.log(`Indexed node ${node.id}`);
+						this.logger.info({ nodeId: node.id }, "Indexed node");
 					}
 				} catch (e) {
-					console.error("Indexing error", e);
+					this.logger.error({ err: e }, "Indexing error");
 				}
 			},
 		});
@@ -67,17 +142,44 @@ export class SearchService {
 		}
 		return new Response("Not Found", { status: 404 });
 	}
+
+	/**
+	 * Get the retriever instance (for external access in HTTP handlers)
+	 */
+	getRetriever(): SearchRetriever {
+		return this.retriever;
+	}
+}
+
+/**
+ * Factory function for creating SearchService instances.
+ * Supports dependency injection for testability.
+ *
+ * @example
+ * // Production usage (uses defaults)
+ * const service = createSearchService();
+ *
+ * @example
+ * // Test usage (inject mocks)
+ * const service = createSearchService({
+ *   retriever: mockRetriever,
+ *   indexer: mockIndexer,
+ *   kafkaClient: mockKafka,
+ * });
+ */
+export function createSearchService(deps?: SearchServiceDeps): SearchService {
+	return new SearchService(deps);
 }
 
 // Main execution
 const PORT = 5002;
 
-const schemaManager = new SchemaManager();
-const indexer = new SearchIndexer();
-const retriever = new SearchRetriever();
-const kafka = createKafkaClient("search-service");
+const logger = createNodeLogger({
+	service: "search-service",
+	base: { component: "main" },
+});
 
-const service = new SearchService(retriever, indexer, schemaManager, kafka);
+const service = createSearchService({ logger });
 await service.initialize();
 
 const server = createServer(async (req, res) => {
@@ -99,7 +201,7 @@ const server = createServer(async (req, res) => {
 		req.on("end", async () => {
 			try {
 				const parsed = JSON.parse(body);
-				const results = await retriever.search(parsed);
+				const results = await service.getRetriever().search(parsed);
 				res.writeHead(200, { "Content-Type": "application/json" });
 				res.end(JSON.stringify(results));
 			} catch (e: unknown) {
@@ -116,5 +218,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-	console.log(`Search Service running on port ${PORT}`);
+	logger.info({ port: PORT }, "Search Service running");
 });

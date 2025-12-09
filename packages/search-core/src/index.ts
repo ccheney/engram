@@ -1,5 +1,5 @@
+export * from "./services/base-embedder";
 export * from "./clients/xai-client";
-export * from "./config";
 export * from "./config/index";
 export * from "./models/schema";
 export * from "./services/batch-indexer";

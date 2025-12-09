@@ -1,17 +1,13 @@
 import { createRequire } from "node:module";
+import type { Consumer, ConsumerConfig, KafkaMessage, MessageClient, Producer } from "./interfaces";
+
+// Re-export types for backward compatibility
+export type { Consumer, Producer, KafkaMessage } from "./interfaces";
 
 const require = createRequire(import.meta.url);
 const { Kafka } = require("@confluentinc/kafka-javascript").KafkaJS;
 
-// Define types for the Kafka consumer/producer since the library lacks proper TS types
-type KafkaMessage = {
-	key?: Buffer;
-	value: Buffer;
-	offset: string;
-	timestamp?: string;
-};
-
-// Internal consumer type from the library
+// Internal consumer type from the library (different from public interface)
 type InternalConsumer = {
 	connect(): Promise<void>;
 	disconnect(): Promise<void>;
@@ -25,29 +21,10 @@ type InternalConsumer = {
 	}): void;
 };
 
-// Public consumer type with KafkaJS-compatible API
-export type Consumer = {
-	connect(): Promise<void>;
-	disconnect(): Promise<void>;
-	subscribe(opts: { topic: string; fromBeginning?: boolean }): Promise<void>;
-	run(opts: {
-		eachMessage: (payload: {
-			topic: string;
-			partition: number;
-			message: KafkaMessage;
-		}) => Promise<void>;
-	}): void;
-};
-
-export type Producer = {
-	connect(): Promise<void>;
-	disconnect(): Promise<void>;
-	send(opts: { topic: string; messages: Array<{ key: string; value: string }> }): Promise<void>;
-};
-
-export class KafkaClient {
+export class KafkaClient implements MessageClient {
 	private kafka: unknown;
 	private producer: Producer | null = null;
+	private consumers: Consumer[] = [];
 	private brokers: string;
 
 	constructor(brokers: string[] = ["localhost:19092"], _clientId: string = "engram-client") {
@@ -68,11 +45,16 @@ export class KafkaClient {
 		return this.producer;
 	}
 
-	public async createConsumer(groupId: string): Promise<Consumer> {
+	/**
+	 * Create a new consumer with the specified configuration.
+	 * Implements MessageClient interface.
+	 * @param config - Consumer configuration including group ID
+	 */
+	public async getConsumer(config: ConsumerConfig): Promise<Consumer> {
 		const kafka = this.kafka as { consumer: (config: Record<string, unknown>) => InternalConsumer };
 		const internalConsumer = kafka.consumer({
 			"bootstrap.servers": this.brokers,
-			"group.id": groupId,
+			"group.id": config.groupId,
 			"auto.offset.reset": "earliest",
 			"enable.auto.commit": true,
 			"session.timeout.ms": 120000, // 2 minutes
@@ -89,7 +71,15 @@ export class KafkaClient {
 			run: (opts) => internalConsumer.run(opts),
 		};
 
+		this.consumers.push(wrappedConsumer);
 		return wrappedConsumer;
+	}
+
+	/**
+	 * @deprecated Use getConsumer(config) instead
+	 */
+	public async createConsumer(groupId: string): Promise<Consumer> {
+		return this.getConsumer({ groupId });
 	}
 
 	/**
@@ -109,9 +99,17 @@ export class KafkaClient {
 		});
 	}
 
-	public async disconnect() {
+	public async disconnect(): Promise<void> {
+		// Disconnect all consumers
+		for (const consumer of this.consumers) {
+			await consumer.disconnect();
+		}
+		this.consumers = [];
+
+		// Disconnect producer
 		if (this.producer) {
 			await this.producer.disconnect();
+			this.producer = null;
 		}
 	}
 }

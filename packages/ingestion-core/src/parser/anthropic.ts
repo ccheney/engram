@@ -1,4 +1,10 @@
 import type { ParserStrategy, StreamDelta } from "./interface";
+import {
+	AnthropicContentBlockDeltaSchema,
+	AnthropicContentBlockStartSchema,
+	AnthropicMessageDeltaSchema,
+	AnthropicMessageStartSchema,
+} from "./schemas";
 
 export class AnthropicParser implements ParserStrategy {
 	parse(payload: unknown): StreamDelta | null {
@@ -7,23 +13,32 @@ export class AnthropicParser implements ParserStrategy {
 		const type = p.type;
 
 		if (type === "message_start") {
-			const message = p.message as Record<string, unknown> | undefined;
-			const usage = message?.usage as Record<string, unknown> | undefined;
+			const result = AnthropicMessageStartSchema.safeParse(payload);
+			if (!result.success) {
+				// Fallback to lenient parsing for malformed but recoverable data
+				return null;
+			}
+			const message = result.data.message;
+			const usage = message?.usage;
 			return {
 				usage: {
-					input: (usage?.input_tokens as number) || 0,
+					input: usage?.input_tokens || 0,
 				},
 			};
 		}
 
 		if (type === "content_block_start") {
-			const contentBlock = p.content_block as Record<string, unknown> | undefined;
+			const result = AnthropicContentBlockStartSchema.safeParse(payload);
+			if (!result.success) {
+				return null;
+			}
+			const contentBlock = result.data.content_block;
 			if (contentBlock?.type === "tool_use") {
 				return {
 					toolCall: {
-						index: p.index as number,
-						id: contentBlock.id as string,
-						name: contentBlock.name as string,
+						index: result.data.index,
+						id: contentBlock.id,
+						name: contentBlock.name,
 						args: "", // Start with empty args
 					},
 				};
@@ -31,30 +46,38 @@ export class AnthropicParser implements ParserStrategy {
 		}
 
 		if (type === "content_block_delta") {
-			const delta = p.delta as Record<string, unknown> | undefined;
-			if (delta?.type === "text_delta") {
-				return { content: delta.text as string };
+			const result = AnthropicContentBlockDeltaSchema.safeParse(payload);
+			if (!result.success) {
+				return null;
 			}
-			if (delta?.type === "input_json_delta") {
+			const delta = result.data.delta;
+			if (delta.type === "text_delta") {
+				return { content: delta.text };
+			}
+			if (delta.type === "input_json_delta") {
 				return {
 					toolCall: {
-						index: p.index as number,
-						args: delta.partial_json as string,
+						index: result.data.index,
+						args: delta.partial_json,
 					},
 				};
 			}
 		}
 
 		if (type === "message_delta") {
-			const usage = p.usage as Record<string, unknown> | undefined;
-			const delta = p.delta as Record<string, unknown> | undefined;
+			const result = AnthropicMessageDeltaSchema.safeParse(payload);
+			if (!result.success) {
+				return null;
+			}
+			const usage = result.data.usage;
+			const delta = result.data.delta;
 			const streamDelta: StreamDelta = {};
 
 			if (usage?.output_tokens) {
-				streamDelta.usage = { output: usage.output_tokens as number };
+				streamDelta.usage = { output: usage.output_tokens };
 			}
 			if (delta?.stop_reason) {
-				streamDelta.stopReason = delta.stop_reason as string;
+				streamDelta.stopReason = delta.stop_reason;
 			}
 			return Object.keys(streamDelta).length > 0 ? streamDelta : null;
 		}

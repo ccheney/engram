@@ -1,11 +1,6 @@
-export const MAX_DATE = 253402300799000; // 9999-12-31
+import type { Bitemporal } from "../models/base";
 
-export interface Bitemporal {
-	vt_start: number; // Epoch Milliseconds
-	vt_end: number; // Epoch Milliseconds (MaxDate if current)
-	tt_start: number; // Epoch Milliseconds
-	tt_end: number; // Epoch Milliseconds (MaxDate if current)
-}
+export const MAX_DATE = 253402300799000; // 9999-12-31
 
 export const now = () => Date.now();
 

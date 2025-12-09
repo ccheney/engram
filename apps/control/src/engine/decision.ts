@@ -1,5 +1,5 @@
 import { xai } from "@ai-sdk/xai";
-import { createNodeLogger } from "@engram/logger";
+import { type Logger, createNodeLogger } from "@engram/logger";
 import { generateText, tool } from "ai";
 import { createActor, fromPromise } from "xstate";
 import { z } from "zod";
@@ -8,13 +8,22 @@ import { type AgentContext, agentMachine, type ToolCall } from "../state/machine
 import type { MultiMcpAdapter } from "../tools/mcp_client";
 
 const model = xai("grok-4-1-fast-reasoning");
-const logger = createNodeLogger({
-	service: "control-service",
-	base: { component: "decision-engine" },
-});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AiToolSet = Record<string, any>;
+
+/**
+ * Dependencies for DecisionEngine construction.
+ * Supports dependency injection for testability.
+ */
+export interface DecisionEngineDeps {
+	/** Context assembler for building agent context. Required. */
+	contextAssembler: ContextAssembler;
+	/** MCP adapter for tool access. Required. */
+	mcpAdapter: MultiMcpAdapter;
+	/** Logger instance. Defaults to createNodeLogger. */
+	logger?: Logger;
+}
 
 /**
  * Convert MCP tools to AI SDK tool format.
@@ -72,11 +81,40 @@ function extractToolCalls(result: { toolCalls?: unknown[] }): ToolCall[] {
 export class DecisionEngine {
 	private actor;
 	private cachedTools: AiToolSet = {};
+	private contextAssembler: ContextAssembler;
+	private mcpAdapter: MultiMcpAdapter;
+	private logger: Logger;
 
+	/**
+	 * Create a DecisionEngine with injectable dependencies.
+	 * @param deps - Dependencies object.
+	 */
+	constructor(deps: DecisionEngineDeps);
+	/** @deprecated Use DecisionEngineDeps object instead */
+	constructor(contextAssembler: ContextAssembler, mcpAdapter: MultiMcpAdapter);
 	constructor(
-		private contextAssembler: ContextAssembler,
-		private mcpAdapter: MultiMcpAdapter,
+		depsOrAssembler: DecisionEngineDeps | ContextAssembler,
+		mcpAdapterArg?: MultiMcpAdapter,
 	) {
+		if ("contextAssembler" in depsOrAssembler && "mcpAdapter" in depsOrAssembler) {
+			// New deps object constructor
+			const deps = depsOrAssembler as DecisionEngineDeps;
+			this.contextAssembler = deps.contextAssembler;
+			this.mcpAdapter = deps.mcpAdapter;
+			this.logger = deps.logger ?? createNodeLogger({
+				service: "control-service",
+				base: { component: "decision-engine" },
+			});
+		} else {
+			// Legacy constructor
+			this.contextAssembler = depsOrAssembler as ContextAssembler;
+			this.mcpAdapter = mcpAdapterArg!;
+			this.logger = createNodeLogger({
+				service: "control-service",
+				base: { component: "decision-engine" },
+			});
+		}
+
 		this.actor = createActor(
 			agentMachine.provide({
 				actors: {
@@ -98,7 +136,7 @@ export class DecisionEngine {
 							aiTools = convertMcpToolsToAiSdk(mcpTools);
 							this.cachedTools = aiTools; // Cache for subsequent calls
 						} catch (e) {
-							logger.warn({ err: e }, "Failed to fetch MCP tools, using cached or empty");
+							this.logger.warn({ err: e }, "Failed to fetch MCP tools, using cached or empty");
 						}
 
 						const hasTools = Object.keys(aiTools).length > 0;
@@ -114,7 +152,7 @@ export class DecisionEngine {
 							// Extract tool calls with proper error handling
 							const toolCalls = extractToolCalls(result);
 
-							logger.debug(
+							this.logger.debug(
 								{
 									text: result.text?.slice(0, 100),
 									toolCallCount: toolCalls.length,
@@ -128,7 +166,7 @@ export class DecisionEngine {
 								toolCalls,
 							};
 						} catch (e) {
-							logger.error({ err: e }, "generateText failed");
+							this.logger.error({ err: e }, "generateText failed");
 							throw e;
 						}
 					}),
@@ -153,7 +191,7 @@ export class DecisionEngine {
 					}),
 					streamResponse: fromPromise(async ({ input }) => {
 						const ctx = input as AgentContext;
-						logger.info({ response: ctx.finalResponse }, "Agent Response");
+						this.logger.info({ response: ctx.finalResponse }, "Agent Response");
 						return {};
 					}),
 					recoverError: fromPromise(async ({ input }) => {
@@ -190,4 +228,27 @@ export class DecisionEngine {
 	async handleInput(sessionId: string, input: string) {
 		this.actor.send({ type: "START", sessionId, input });
 	}
+}
+
+/**
+ * Factory function for creating DecisionEngine instances.
+ * Supports dependency injection for testability.
+ *
+ * @example
+ * // Production usage
+ * const engine = createDecisionEngine({
+ *   contextAssembler: assembler,
+ *   mcpAdapter: multiAdapter,
+ * });
+ *
+ * @example
+ * // Test usage (inject mocks)
+ * const engine = createDecisionEngine({
+ *   contextAssembler: mockAssembler,
+ *   mcpAdapter: mockAdapter,
+ *   logger: mockLogger,
+ * });
+ */
+export function createDecisionEngine(deps: DecisionEngineDeps): DecisionEngine {
+	return new DecisionEngine(deps);
 }

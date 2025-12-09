@@ -1,28 +1,70 @@
 import { pipeline } from "@huggingface/transformers";
+import { BasePipelineEmbedder, type EmbedderConfig } from "./base-embedder";
 
-// Chunk configuration for code embeddings
-const CHUNK_SIZE = 6000; // Characters (~1500 tokens, safe for model limits)
-const CHUNK_OVERLAP = 500; // Overlap between chunks for context continuity
-const MAX_CHUNKS = 5; // Limit chunks to avoid excessive processing
+/**
+ * Configuration for CodeEmbedder.
+ */
+export interface CodeEmbedderConfig extends EmbedderConfig {
+	/** Characters per chunk (default: 6000, ~1500 tokens) */
+	chunkSize?: number;
+	/** Overlap between chunks for context continuity */
+	chunkOverlap?: number;
+	/** Maximum chunks to process per file */
+	maxChunks?: number;
+	/** Task prefix for documents (default: "search_document:") */
+	documentPrefix?: string;
+	/** Task prefix for queries (default: "search_query:") */
+	queryPrefix?: string;
+}
+
+const DEFAULT_CONFIG: CodeEmbedderConfig = {
+	model: "Xenova/nomic-embed-text-v1",
+	dimensions: 768,
+	maxTokens: 8192,
+	chunkSize: 6000,
+	chunkOverlap: 500,
+	maxChunks: 5,
+	documentPrefix: "search_document:",
+	queryPrefix: "search_query:",
+};
+
+type ExtractorFn = (
+	text: string,
+	opts: { pooling: string; normalize: boolean },
+) => Promise<{ data: Float32Array }>;
 
 /**
  * Code-specific embedding using nomic-embed-text-v1.
+ * Extends BasePipelineEmbedder for common functionality.
+ *
  * Features:
  * - 8192 token context (using safe 6k char chunks)
  * - Task prefix support for better retrieval
  * - Chunking with overlap for large files
+ * - Automatic embedding averaging for chunked content
  */
-export class CodeEmbedder {
-	private static instance: unknown;
-	// nomic-embed-text-v1: 8k context, designed for long text, works well for code
-	// Has task prefixes: search_document, search_query
-	private static modelName = "Xenova/nomic-embed-text-v1";
+export class CodeEmbedder extends BasePipelineEmbedder<CodeEmbedderConfig> {
+	private static instance: unknown = null;
 
-	static async getInstance() {
+	constructor(config: Partial<CodeEmbedderConfig> = {}) {
+		super({ ...DEFAULT_CONFIG, ...config });
+	}
+
+	/**
+	 * Get or create singleton pipeline instance.
+	 */
+	protected async getInstance(): Promise<ExtractorFn> {
 		if (!CodeEmbedder.instance) {
-			CodeEmbedder.instance = await pipeline("feature-extraction", CodeEmbedder.modelName);
+			CodeEmbedder.instance = await pipeline("feature-extraction", this.config.model);
 		}
-		return CodeEmbedder.instance;
+		return CodeEmbedder.instance as ExtractorFn;
+	}
+
+	/**
+	 * Load the model (for preloading).
+	 */
+	protected async loadModel(): Promise<void> {
+		await this.getInstance();
 	}
 
 	/**
@@ -34,12 +76,12 @@ export class CodeEmbedder {
 		const chunks = this.chunkCode(code);
 
 		if (chunks.length === 1) {
-			return this.embedSingle(`search_document: ${chunks[0]}`);
+			return this.embedSingle(`${this.config.documentPrefix} ${chunks[0]}`);
 		}
 
 		// Multiple chunks: embed each and average
 		const embeddings = await Promise.all(
-			chunks.map((chunk) => this.embedSingle(`search_document: ${chunk}`)),
+			chunks.map((chunk) => this.embedSingle(`${this.config.documentPrefix} ${chunk}`)),
 		);
 
 		return this.averageEmbeddings(embeddings);
@@ -50,19 +92,15 @@ export class CodeEmbedder {
 	 * Uses 'search_query:' prefix for retrieval optimization.
 	 */
 	async embedQuery(query: string): Promise<number[]> {
-		return this.embedSingle(`search_query: ${query}`);
+		return this.embedSingle(`${this.config.queryPrefix} ${query}`);
 	}
 
 	/**
 	 * Embed a single text chunk.
 	 */
 	private async embedSingle(text: string): Promise<number[]> {
-		const extractor = await CodeEmbedder.getInstance();
-		const extractFn = extractor as (
-			text: string,
-			opts: { pooling: string; normalize: boolean },
-		) => Promise<{ data: Float32Array }>;
-		const output = await extractFn(text, { pooling: "mean", normalize: true });
+		const extractor = await this.getInstance();
+		const output = await extractor(text, { pooling: "mean", normalize: true });
 		return Array.from(output.data);
 	}
 
@@ -71,20 +109,22 @@ export class CodeEmbedder {
 	 * Tries to split at natural boundaries (newlines).
 	 */
 	private chunkCode(code: string): string[] {
-		if (code.length <= CHUNK_SIZE) {
+		const { chunkSize = 6000, chunkOverlap = 500, maxChunks = 5 } = this.config;
+
+		if (code.length <= chunkSize) {
 			return [code];
 		}
 
 		const chunks: string[] = [];
 		let start = 0;
 
-		while (start < code.length && chunks.length < MAX_CHUNKS) {
-			let end = Math.min(start + CHUNK_SIZE, code.length);
+		while (start < code.length && chunks.length < maxChunks) {
+			let end = Math.min(start + chunkSize, code.length);
 
 			// Try to find a natural break point (newline) near the end
 			if (end < code.length) {
 				const lastNewline = code.lastIndexOf("\n", end);
-				if (lastNewline > start + CHUNK_SIZE * 0.5) {
+				if (lastNewline > start + chunkSize * 0.5) {
 					end = lastNewline + 1;
 				}
 			}
@@ -92,42 +132,9 @@ export class CodeEmbedder {
 			chunks.push(code.slice(start, end));
 
 			// Move start with overlap, but ensure progress
-			start = Math.max(start + 1, end - CHUNK_OVERLAP);
+			start = Math.max(start + 1, end - chunkOverlap);
 		}
 
 		return chunks;
-	}
-
-	/**
-	 * Average multiple embeddings into one.
-	 * Normalizes the result for cosine similarity.
-	 */
-	private averageEmbeddings(embeddings: number[][]): number[] {
-		if (embeddings.length === 0) return [];
-		if (embeddings.length === 1) return embeddings[0];
-
-		const dim = embeddings[0].length;
-		const avg = new Array(dim).fill(0);
-
-		for (const emb of embeddings) {
-			for (let i = 0; i < dim; i++) {
-				avg[i] += emb[i];
-			}
-		}
-
-		// Average
-		for (let i = 0; i < dim; i++) {
-			avg[i] /= embeddings.length;
-		}
-
-		// L2 normalize
-		const norm = Math.sqrt(avg.reduce((sum, val) => sum + val * val, 0));
-		if (norm > 0) {
-			for (let i = 0; i < dim; i++) {
-				avg[i] /= norm;
-			}
-		}
-
-		return avg;
 	}
 }

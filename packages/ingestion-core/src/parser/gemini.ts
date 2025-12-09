@@ -1,4 +1,11 @@
 import type { ParserStrategy, StreamDelta } from "./interface";
+import {
+	GeminiInitSchema,
+	GeminiMessageSchema,
+	GeminiResultSchema,
+	GeminiToolResultSchema,
+	GeminiToolUseSchema,
+} from "./schemas";
 
 /**
  * Parser for Google Gemini CLI's `--output-format stream-json` output.
@@ -17,8 +24,13 @@ export class GeminiParser implements ParserStrategy {
 
 		// Handle init events (session initialization)
 		if (type === "init") {
-			const sessionId = p.session_id as string;
-			const model = p.model as string;
+			const parseResult = GeminiInitSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const sessionId = data.session_id;
+			const model = data.model;
 
 			const delta: StreamDelta = {
 				type: "content",
@@ -38,8 +50,13 @@ export class GeminiParser implements ParserStrategy {
 
 		// Handle message events (user or assistant content)
 		if (type === "message") {
-			const role = p.role as string;
-			const content = p.content as string;
+			const parseResult = GeminiMessageSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const role = data.role;
+			const content = data.content;
 
 			if (!content) return null;
 
@@ -62,16 +79,18 @@ export class GeminiParser implements ParserStrategy {
 
 		// Handle tool_use events (tool invocation)
 		if (type === "tool_use") {
-			const toolName = p.tool_name as string;
-			const toolId = p.tool_id as string;
-			const parameters = p.parameters as Record<string, unknown> | undefined;
+			const parseResult = GeminiToolUseSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
 
 			return {
 				type: "tool_call",
 				toolCall: {
-					id: toolId,
-					name: toolName,
-					args: parameters ? JSON.stringify(parameters) : "{}",
+					id: data.tool_id,
+					name: data.tool_name,
+					args: data.parameters ? JSON.stringify(data.parameters) : "{}",
 					index: 0,
 				},
 			};
@@ -79,42 +98,47 @@ export class GeminiParser implements ParserStrategy {
 
 		// Handle tool_result events (tool execution results)
 		if (type === "tool_result") {
-			const toolId = p.tool_id as string;
-			const status = p.status as string;
-			const output = p.output as string;
+			const parseResult = GeminiToolResultSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
 
-			if (!output) return null;
+			if (!data.output) return null;
 
 			return {
 				type: "content",
-				content: `[Tool Result: ${toolId}] (${status})\n${output}`,
+				content: `[Tool Result: ${data.tool_id}] (${data.status})\n${data.output}`,
 			};
 		}
 
 		// Handle result events (final stats/completion)
 		if (type === "result") {
-			const stats = p.stats as Record<string, unknown> | undefined;
+			const parseResult = GeminiResultSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const stats = data.stats;
 			if (!stats) return null;
 
 			const delta: StreamDelta = {
 				type: "usage",
 				usage: {
-					input: (stats.input_tokens as number) || 0,
-					output: (stats.output_tokens as number) || 0,
-					total: (stats.total_tokens as number) || 0,
+					input: stats.input_tokens || 0,
+					output: stats.output_tokens || 0,
+					total: stats.total_tokens || 0,
 				},
 			};
 
 			// Extract timing from stats.duration_ms
-			const durationMs = stats.duration_ms as number | undefined;
-			if (durationMs !== undefined) {
-				delta.timing = { duration: durationMs };
+			if (stats.duration_ms !== undefined) {
+				delta.timing = { duration: stats.duration_ms };
 			}
 
 			// Extract status as stop reason
-			const status = p.status as string | undefined;
-			if (status) {
-				delta.stopReason = status;
+			if (data.status) {
+				delta.stopReason = data.status;
 			}
 
 			return delta;

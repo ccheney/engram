@@ -1,6 +1,6 @@
 import { createLogger } from "@engram/logger";
-import { loadConfigFromEnv, validateApiKeys } from "./env";
-import type { RerankerConfig } from "./reranker-config";
+import type { RerankerConfig } from "./index";
+import { rerankerConfig } from "./index";
 
 const logger = createLogger({ component: "RuntimeConfig" });
 
@@ -46,9 +46,9 @@ export class RuntimeConfig {
 		if (initialConfig) {
 			this.config = initialConfig;
 		} else {
-			// Load from environment
-			this.config = loadConfigFromEnv();
-			validateApiKeys(this.config);
+			// Use the pre-loaded config from index (already has env vars applied)
+			this.config = structuredClone(rerankerConfig);
+			this.validateApiKeys(this.config);
 		}
 
 		logger.info({
@@ -94,7 +94,7 @@ export class RuntimeConfig {
 
 		// Validate updated config
 		try {
-			validateApiKeys(instance.config);
+			instance.validateApiKeys(instance.config);
 		} catch (error) {
 			// Rollback on validation failure
 			instance.config = oldConfig;
@@ -120,8 +120,8 @@ export class RuntimeConfig {
 		}
 
 		const instance = RuntimeConfig.instance;
-		instance.config = loadConfigFromEnv();
-		validateApiKeys(instance.config);
+		instance.config = structuredClone(rerankerConfig);
+		instance.validateApiKeys(instance.config);
 
 		logger.info({
 			msg: "Configuration reset to environment defaults",
@@ -196,6 +196,21 @@ export class RuntimeConfig {
 	 */
 	static getWatcherCount(): number {
 		return RuntimeConfig.instance?.watchers.size ?? 0;
+	}
+
+	/**
+	 * Validate that required API keys are present for enabled tiers.
+	 *
+	 * @param config - Reranker configuration
+	 * @throws {Error} If required API keys are missing
+	 */
+	private validateApiKeys(config: RerankerConfig): void {
+		// Check if LLM tier is enabled and requires API key
+		if (config.tiers.llm.enabled && !process.env.XAI_API_KEY) {
+			throw new Error(
+				"XAI_API_KEY environment variable is required when LLM reranker tier is enabled",
+			);
+		}
 	}
 
 	/**

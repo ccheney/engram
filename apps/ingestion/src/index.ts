@@ -1,38 +1,74 @@
 import { createServer } from "node:http";
 import { type RawStreamEvent, RawStreamEventSchema } from "@engram/events";
 import {
-	AnthropicParser,
-	ClaudeCodeParser,
-	ClineParser,
-	CodexParser,
 	DiffExtractor,
-	GeminiParser,
-	OpenAIParser,
-	OpenCodeParser,
 	Redactor,
 	type StreamDelta,
 	ThinkingExtractor,
-	XAIParser,
+	defaultRegistry,
 } from "@engram/ingestion-core";
+import { type Logger, createNodeLogger } from "@engram/logger";
 import { createKafkaClient } from "@engram/storage";
 
-const kafka = createKafkaClient("ingestion-service");
-const redactor = new Redactor();
-const anthropicParser = new AnthropicParser();
-const openaiParser = new OpenAIParser();
-const xaiParser = new XAIParser();
-const claudeCodeParser = new ClaudeCodeParser();
-const clineParser = new ClineParser();
-const codexParser = new CodexParser();
-const geminiParser = new GeminiParser();
-const opencodeParser = new OpenCodeParser();
+/**
+ * Dependencies for IngestionProcessor construction.
+ * Supports dependency injection for testability.
+ */
+export interface IngestionProcessorDeps {
+	/** Kafka client for event streaming. */
+	kafkaClient?: ReturnType<typeof createKafkaClient>;
+	/** Redactor for PII removal. */
+	redactor?: Redactor;
+	/** Logger instance. */
+	logger?: Logger;
+}
 
 // In-memory state for extractors (per session)
 const thinkingExtractors = new Map<string, ThinkingExtractor>();
 const diffExtractors = new Map<string, DiffExtractor>();
 
 export class IngestionProcessor {
-	constructor(private kafkaClient: any = kafka) {}
+	private kafkaClient: ReturnType<typeof createKafkaClient>;
+	private redactor: Redactor;
+	private logger: Logger;
+
+	/**
+	 * Create an IngestionProcessor with injectable dependencies.
+	 * @param deps - Optional dependencies. Defaults are used when not provided.
+	 */
+	constructor(deps?: IngestionProcessorDeps);
+	/** @deprecated Use IngestionProcessorDeps object instead */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	constructor(kafkaClient: any);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	constructor(depsOrKafka?: IngestionProcessorDeps | any) {
+		if (depsOrKafka === undefined) {
+			// No args: use defaults
+			this.kafkaClient = createKafkaClient("ingestion-service");
+			this.redactor = new Redactor();
+			this.logger = createNodeLogger({
+				service: "ingestion-service",
+				base: { component: "processor" },
+			});
+		} else if (typeof depsOrKafka === "object" && ("kafkaClient" in depsOrKafka || "redactor" in depsOrKafka || "logger" in depsOrKafka)) {
+			// New deps object constructor
+			const deps = depsOrKafka as IngestionProcessorDeps;
+			this.kafkaClient = deps.kafkaClient ?? createKafkaClient("ingestion-service");
+			this.redactor = deps.redactor ?? new Redactor();
+			this.logger = deps.logger ?? createNodeLogger({
+				service: "ingestion-service",
+				base: { component: "processor" },
+			});
+		} else {
+			// Legacy: kafkaClient directly
+			this.kafkaClient = depsOrKafka;
+			this.redactor = new Redactor();
+			this.logger = createNodeLogger({
+				service: "ingestion-service",
+				base: { component: "processor" },
+			});
+		}
+	}
 
 	async processEvent(rawEvent: RawStreamEvent) {
 		const provider = rawEvent.provider;
@@ -44,26 +80,16 @@ export class IngestionProcessor {
 		const gitRemote = headers["x-git-remote"] || null;
 		const agentType = headers["x-agent-type"] || "unknown";
 
-		// 1. Parse
-		let delta: StreamDelta | null = null;
-		if (provider === "anthropic") {
-			delta = anthropicParser.parse(rawEvent.payload);
-		} else if (provider === "openai") {
-			delta = openaiParser.parse(rawEvent.payload);
-		} else if (provider === "xai") {
-			delta = xaiParser.parse(rawEvent.payload);
-		} else if (provider === "claude_code") {
-			delta = claudeCodeParser.parse(rawEvent.payload);
-		} else if (provider === "codex") {
-			delta = codexParser.parse(rawEvent.payload);
-		} else if (provider === "gemini") {
-			delta = geminiParser.parse(rawEvent.payload);
-		} else if (provider === "opencode") {
-			delta = opencodeParser.parse(rawEvent.payload);
-		} else if (provider === "cline") {
-			delta = clineParser.parse(rawEvent.payload);
+		// 1. Parse using registry
+		if (!defaultRegistry.has(provider)) {
+			this.logger.warn(
+				{ provider, available: defaultRegistry.providers() },
+				"Unknown provider"
+			);
+			return { status: "ignored" };
 		}
 
+		const delta: StreamDelta | null = defaultRegistry.parse(provider, rawEvent.payload);
 		if (!delta) {
 			return { status: "ignored" };
 		}
@@ -94,10 +120,10 @@ export class IngestionProcessor {
 
 		// 4. Redact
 		if (delta.content) {
-			delta.content = redactor.redact(delta.content);
+			delta.content = this.redactor.redact(delta.content);
 		}
 		if (delta.thought) {
-			delta.thought = redactor.redact(delta.thought);
+			delta.thought = this.redactor.redact(delta.thought);
 		}
 
 		// 5. Map fields to ParsedStreamEvent schema
@@ -148,12 +174,37 @@ export class IngestionProcessor {
 			},
 		});
 
-		console.log(`[Ingest] Processed event ${rawEvent.event_id} for session ${sessionId}`);
+		this.logger.info({ eventId: rawEvent.event_id, sessionId }, "Processed event");
 		return { status: "processed" };
 	}
 }
 
-const processor = new IngestionProcessor();
+/**
+ * Factory function for creating IngestionProcessor instances.
+ * Supports dependency injection for testability.
+ *
+ * @example
+ * // Production usage (uses defaults)
+ * const processor = createIngestionProcessor();
+ *
+ * @example
+ * // Test usage (inject mocks)
+ * const processor = createIngestionProcessor({
+ *   kafkaClient: mockKafka,
+ *   redactor: mockRedactor,
+ * });
+ */
+export function createIngestionProcessor(deps?: IngestionProcessorDeps): IngestionProcessor {
+	return new IngestionProcessor(deps);
+}
+
+// Initialize main logger and processor
+const logger = createNodeLogger({
+	service: "ingestion-service",
+	base: { component: "main" },
+});
+const kafka = createKafkaClient("ingestion-service");
+const processor = createIngestionProcessor({ kafkaClient: kafka, logger });
 export const processEvent = processor.processEvent.bind(processor);
 
 // Kafka Consumer
@@ -166,22 +217,40 @@ async function startConsumer() {
 			const value = message.value?.toString();
 			if (!value) return;
 
+			let rawBody: unknown;
 			try {
-				const rawBody = JSON.parse(value);
+				rawBody = JSON.parse(value);
 				const rawEvent = RawStreamEventSchema.parse(rawBody);
 				await processEvent(rawEvent);
 			} catch (e) {
-				console.error("Kafka Consumer Error:", e);
-				// DLQ logic is tricky here without rawBody access sometimes,
-				// but we can try best effort if JSON.parse worked.
+				const errorMessage = e instanceof Error ? e.message : String(e);
+				logger.error({ err: e }, "Kafka Consumer Error");
+
+				// Send to Dead Letter Queue for later analysis/retry
+				try {
+					const eventId =
+						rawBody && typeof rawBody === "object" && "event_id" in rawBody
+							? String((rawBody as Record<string, unknown>).event_id)
+							: `unknown-${Date.now()}`;
+
+					await kafka.sendEvent("ingestion.dead_letter", eventId, {
+						error: errorMessage,
+						payload: rawBody ?? value, // Use raw string if JSON parsing failed
+						timestamp: new Date().toISOString(),
+						source: "kafka_consumer",
+					});
+					logger.warn({ eventId }, "Sent failed message to DLQ");
+				} catch (dlqError) {
+					logger.error({ err: dlqError }, "Failed to send to DLQ");
+				}
 			}
 		},
 	});
-	console.log("Ingestion Service Kafka Consumer started");
+	logger.info("Ingestion Service Kafka Consumer started");
 }
 
 // Start Consumer
-startConsumer().catch(console.error);
+startConsumer().catch((err) => logger.error({ err }, "Consumer startup failed"));
 
 // Simple HTTP Server (Node.js compatible)
 const PORT = 5001;
@@ -214,7 +283,7 @@ const server = createServer(async (req, res) => {
 				res.end(JSON.stringify({ status: "processed" }));
 			} catch (e: unknown) {
 				const message = e instanceof Error ? e.message : String(e);
-				console.error("Ingestion Error:", message);
+				logger.error({ err: e }, "Ingestion Error");
 
 				// DLQ Logic
 				try {
@@ -227,7 +296,7 @@ const server = createServer(async (req, res) => {
 						timestamp: new Date().toISOString(),
 					});
 				} catch (dlqError) {
-					console.error("Failed to send to DLQ:", dlqError);
+					logger.error({ err: dlqError }, "Failed to send to DLQ");
 				}
 
 				res.writeHead(400, { "Content-Type": "application/json" });
@@ -242,5 +311,5 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-	console.log(`Ingestion Service running on port ${PORT}`);
+	logger.info({ port: PORT }, "Ingestion Service running");
 });

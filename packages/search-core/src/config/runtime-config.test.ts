@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { DEFAULT_RERANKER_CONFIG } from "./reranker-config";
-import { RuntimeConfig } from "./runtime-config";
+import { DEFAULT_RERANKER_CONFIG, RuntimeConfig } from "./index";
 
 describe("RuntimeConfig", () => {
 	// Store original env

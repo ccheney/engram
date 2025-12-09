@@ -1,36 +1,84 @@
 import { pipeline } from "@huggingface/transformers";
+import { BasePipelineEmbedder, type EmbedderConfig } from "./base-embedder";
 import { SpladeEmbedder } from "./splade-embedder";
 
-export class TextEmbedder {
-	private static instance: unknown;
-	private static modelName = "Xenova/multilingual-e5-small"; // ONNX quantized version
+/**
+ * Configuration for TextEmbedder.
+ */
+export interface TextEmbedderConfig extends EmbedderConfig {
+	/** Task prefix for passages (default: "passage:") */
+	passagePrefix?: string;
+	/** Task prefix for queries (default: "query:") */
+	queryPrefix?: string;
+}
+
+const DEFAULT_CONFIG: TextEmbedderConfig = {
+	model: "Xenova/multilingual-e5-small",
+	dimensions: 384,
+	maxTokens: 512,
+	passagePrefix: "passage:",
+	queryPrefix: "query:",
+};
+
+type ExtractorFn = (
+	text: string,
+	opts: { pooling: string; normalize: boolean },
+) => Promise<{ data: Float32Array }>;
+
+/**
+ * Text embedder using multilingual-e5-small model.
+ * Extends BasePipelineEmbedder for common functionality.
+ *
+ * Features:
+ * - Dense embeddings via HuggingFace pipeline
+ * - Sparse embeddings via SPLADE delegation
+ * - Task prefix support for retrieval optimization
+ */
+export class TextEmbedder extends BasePipelineEmbedder<TextEmbedderConfig> {
+	private static instance: unknown = null;
 	private sparseEmbedder = new SpladeEmbedder();
 
-	static async getInstance() {
+	constructor(config: Partial<TextEmbedderConfig> = {}) {
+		super({ ...DEFAULT_CONFIG, ...config });
+	}
+
+	/**
+	 * Get or create singleton pipeline instance.
+	 */
+	protected async getInstance(): Promise<ExtractorFn> {
 		if (!TextEmbedder.instance) {
-			TextEmbedder.instance = await pipeline("feature-extraction", TextEmbedder.modelName);
+			TextEmbedder.instance = await pipeline("feature-extraction", this.config.model);
 		}
-		return TextEmbedder.instance;
+		return TextEmbedder.instance as ExtractorFn;
 	}
 
+	/**
+	 * Load the model (for preloading).
+	 */
+	protected async loadModel(): Promise<void> {
+		await this.getInstance();
+	}
+
+	/**
+	 * Embed document (passage) for storage/indexing.
+	 */
 	async embed(text: string): Promise<number[]> {
-		const extractor = await TextEmbedder.getInstance();
-		const extractFn = extractor as (
-			text: string,
-			opts: { pooling: string; normalize: boolean },
-		) => Promise<{ data: Float32Array }>;
-		const output = await extractFn(`passage: ${text}`, { pooling: "mean", normalize: true });
-		return Array.from(output.data);
+		return this.callEmbeddingAPI(text, {
+			prefix: this.config.passagePrefix,
+			pooling: "mean",
+			normalize: true,
+		});
 	}
 
+	/**
+	 * Embed query for searching.
+	 */
 	async embedQuery(text: string): Promise<number[]> {
-		const extractor = await TextEmbedder.getInstance();
-		const extractFn = extractor as (
-			text: string,
-			opts: { pooling: string; normalize: boolean },
-		) => Promise<{ data: Float32Array }>;
-		const output = await extractFn(`query: ${text}`, { pooling: "mean", normalize: true });
-		return Array.from(output.data);
+		return this.callEmbeddingAPI(text, {
+			prefix: this.config.queryPrefix,
+			pooling: "mean",
+			normalize: true,
+		});
 	}
 
 	/**

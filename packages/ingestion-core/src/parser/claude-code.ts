@@ -1,4 +1,11 @@
 import type { ParserStrategy, StreamDelta } from "./interface";
+import {
+	ClaudeCodeAssistantSchema,
+	ClaudeCodeResultSchema,
+	ClaudeCodeSystemSchema,
+	ClaudeCodeToolResultSchema,
+	ClaudeCodeToolUseSchema,
+} from "./schemas";
 
 /**
  * Parser for Claude Code's stream-json output format.
@@ -17,25 +24,26 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 		// Handle assistant messages with content
 		if (type === "assistant") {
-			const message = p.message as Record<string, unknown> | undefined;
+			const parseResult = ClaudeCodeAssistantSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const message = parseResult.data.message;
 			if (!message) return null;
-
-			const role = message.role as string | undefined;
-			const content = message.content as Array<Record<string, unknown>> | undefined;
-			const usage = message.usage as Record<string, unknown> | undefined;
 
 			const delta: StreamDelta = {};
 
 			// Set role if present
-			if (role) {
-				delta.role = role;
+			if (message.role) {
+				delta.role = message.role;
 			}
 
 			// Extract text content from content blocks
+			const content = message.content;
 			if (content && Array.isArray(content)) {
 				const textContent = content
 					.filter((block) => block.type === "text")
-					.map((block) => block.text as string)
+					.map((block) => block.text || "")
 					.join("");
 
 				if (textContent) {
@@ -48,8 +56,8 @@ export class ClaudeCodeParser implements ParserStrategy {
 				if (toolUseBlocks.length > 0) {
 					const toolBlock = toolUseBlocks[0];
 					delta.toolCall = {
-						id: toolBlock.id as string,
-						name: toolBlock.name as string,
+						id: toolBlock.id,
+						name: toolBlock.name,
 						args: JSON.stringify(toolBlock.input),
 						index: 0,
 					};
@@ -58,23 +66,24 @@ export class ClaudeCodeParser implements ParserStrategy {
 			}
 
 			// Extract usage info with cache metrics
+			const usage = message.usage;
 			if (usage) {
 				delta.usage = {
-					input: (usage.input_tokens as number) || 0,
-					output: (usage.output_tokens as number) || 0,
-					cacheRead: (usage.cache_read_input_tokens as number) || 0,
-					cacheWrite: (usage.cache_creation_input_tokens as number) || 0,
+					input: usage.input_tokens || 0,
+					output: usage.output_tokens || 0,
+					cacheRead: usage.cache_read_input_tokens || 0,
+					cacheWrite: usage.cache_creation_input_tokens || 0,
 				};
 			}
 
 			// Extract model from the message
 			if (message.model) {
-				delta.model = message.model as string;
+				delta.model = message.model;
 			}
 
 			// Extract stop reason
 			if (message.stop_reason) {
-				delta.stopReason = message.stop_reason as string;
+				delta.stopReason = message.stop_reason;
 			}
 
 			return Object.keys(delta).length > 0 ? delta : null;
@@ -82,14 +91,18 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 		// Handle tool_use events
 		if (type === "tool_use") {
-			const toolUse = p.tool_use as Record<string, unknown> | undefined;
+			const parseResult = ClaudeCodeToolUseSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const toolUse = parseResult.data.tool_use;
 			if (!toolUse) return null;
 
 			return {
 				type: "tool_call",
 				toolCall: {
-					id: toolUse.tool_use_id as string,
-					name: toolUse.name as string,
+					id: toolUse.tool_use_id,
+					name: toolUse.name,
 					args: JSON.stringify(toolUse.input),
 					index: 0,
 				},
@@ -98,11 +111,15 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 		// Handle tool_result events
 		if (type === "tool_result") {
-			const toolResult = p.tool_result as Record<string, unknown> | undefined;
+			const parseResult = ClaudeCodeToolResultSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const toolResult = parseResult.data.tool_result;
 			if (!toolResult) return null;
 
 			// Tool results contain the output - treat as content
-			const resultContent = toolResult.content as string | undefined;
+			const resultContent = toolResult.content;
 			if (resultContent) {
 				return {
 					type: "content",
@@ -114,44 +131,44 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 		// Handle result events (final summary with cost, duration, session)
 		if (type === "result") {
-			const result = p.result as string | undefined;
-			const usage = p.usage as Record<string, unknown> | undefined;
+			const parseResult = ClaudeCodeResultSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
 
 			const delta: StreamDelta = {};
 
-			if (result) {
+			if (data.result) {
 				delta.type = "stop";
-				delta.stopReason = (p.subtype as string) || "end_turn";
+				delta.stopReason = data.subtype || "end_turn";
 			}
 
-			if (usage) {
+			if (data.usage) {
 				delta.usage = {
-					input: (usage.input_tokens as number) || 0,
-					output: (usage.output_tokens as number) || 0,
-					cacheRead: (usage.cache_read_input_tokens as number) || 0,
-					cacheWrite: (usage.cache_creation_input_tokens as number) || 0,
+					input: data.usage.input_tokens || 0,
+					output: data.usage.output_tokens || 0,
+					cacheRead: data.usage.cache_read_input_tokens || 0,
+					cacheWrite: data.usage.cache_creation_input_tokens || 0,
 				};
 				delta.type = "usage";
 			}
 
 			// Extract cost
-			if (p.total_cost_usd !== undefined) {
-				delta.cost = p.total_cost_usd as number;
+			if (data.total_cost_usd !== undefined) {
+				delta.cost = data.total_cost_usd;
 			}
 
 			// Extract timing
-			const durationMs = p.duration_ms as number | undefined;
-			const durationApiMs = p.duration_api_ms as number | undefined;
-			if (durationMs !== undefined || durationApiMs !== undefined) {
+			if (data.duration_ms !== undefined || data.duration_api_ms !== undefined) {
 				delta.timing = {
-					duration: durationMs || durationApiMs,
+					duration: data.duration_ms || data.duration_api_ms,
 				};
 			}
 
 			// Extract session ID
-			const sessionId = p.session_id as string | undefined;
-			if (sessionId) {
-				delta.session = { id: sessionId };
+			if (data.session_id) {
+				delta.session = { id: data.session_id };
 			}
 
 			return Object.keys(delta).length > 0 ? delta : null;
@@ -159,21 +176,26 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 		// Handle system events (init, hook_response)
 		if (type === "system") {
-			const subtype = p.subtype as string | undefined;
+			const parseResult = ClaudeCodeSystemSchema.safeParse(payload);
+			if (!parseResult.success) {
+				return null;
+			}
+			const data = parseResult.data;
+			const subtype = data.subtype;
 
 			// Init events contain metadata about the session
 			if (subtype === "init") {
 				const delta: StreamDelta = {
 					type: "content",
-					content: `[Session Init] model=${p.model}, tools=${(p.tools as string[])?.length || 0}`,
+					content: `[Session Init] model=${data.model}, tools=${data.tools?.length || 0}`,
 				};
 
-				if (p.model) {
-					delta.model = p.model as string;
+				if (data.model) {
+					delta.model = data.model;
 				}
 
-				if (p.session_id) {
-					delta.session = { id: p.session_id as string };
+				if (data.session_id) {
+					delta.session = { id: data.session_id };
 				}
 
 				return delta;
@@ -181,11 +203,11 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 			// Hook responses contain hook output
 			if (subtype === "hook_response") {
-				const stdout = p.stdout as string | undefined;
+				const stdout = data.stdout;
 				if (stdout) {
 					return {
 						type: "content",
-						content: `[Hook: ${p.hook_name}] ${stdout.slice(0, 200)}...`,
+						content: `[Hook: ${data.hook_name}] ${stdout.slice(0, 200)}...`,
 					};
 				}
 			}

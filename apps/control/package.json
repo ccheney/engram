@@ -3,7 +3,6 @@
 	"version": "0.0.0",
 	"type": "module",
 	"dependencies": {
-		"@ai-sdk/openai": "^2.0.77",
 		"@ai-sdk/xai": "^2.0.39",
 		"@mastra/core": "^0.24.6",
 		"@modelcontextprotocol/sdk": "^1.24.3",

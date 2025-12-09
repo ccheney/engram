@@ -21,6 +21,7 @@ export function createBrowserLogger(options: BrowserLoggerOptions): Logger {
 		logEndpoint = "/api/v1/logs/client",
 		batchSize = 10,
 		flushInterval = 5000,
+		onFlushError,
 	} = options;
 
 	let logBuffer: Array<Record<string, unknown>> = [];
@@ -35,14 +36,25 @@ export function createBrowserLogger(options: BrowserLoggerOptions): Logger {
 		if (!forwardToBackend) return;
 
 		try {
-			await fetch(logEndpoint, {
+			const response = await fetch(logEndpoint, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ logs: logsToSend }),
 				keepalive: true,
 			});
-		} catch {
-			// Silently fail - don't log about logging failures
+
+			if (!response.ok) {
+				const error = new Error(`Log flush failed: ${response.status} ${response.statusText}`);
+				if (onFlushError) {
+					onFlushError(error, logsToSend);
+				}
+			}
+		} catch (e) {
+			// Call error callback if provided, otherwise silent (can't log about logging failures)
+			if (onFlushError) {
+				const error = e instanceof Error ? e : new Error(String(e));
+				onFlushError(error, logsToSend);
+			}
 		}
 	};
 

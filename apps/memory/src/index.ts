@@ -1,11 +1,101 @@
-import { createNodeLogger, pino } from "@engram/logger";
+import { type Logger, createNodeLogger, pino } from "@engram/logger";
 import { GraphPruner } from "@engram/memory-core";
-import { createFalkorClient, createKafkaClient } from "@engram/storage";
+import {
+	type GraphClient,
+	type RedisPublisher,
+	createFalkorClient,
+	createKafkaClient,
+} from "@engram/storage";
 import { createRedisPublisher } from "@engram/storage/redis";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { type NodeCreatedCallback, TurnAggregator } from "./turn-aggregator";
+
+/**
+ * Dependencies for Memory Service construction.
+ * Supports dependency injection for testability.
+ */
+export interface MemoryServiceDeps {
+	/** Graph client for session persistence. Defaults to FalkorClient. */
+	graphClient?: GraphClient;
+	/** Kafka client for event streaming. */
+	kafkaClient?: ReturnType<typeof createKafkaClient>;
+	/** Redis publisher for real-time updates. */
+	redisPublisher?: RedisPublisher;
+	/** Logger instance. */
+	logger?: Logger;
+	/** Turn aggregator for event processing. */
+	turnAggregator?: TurnAggregator;
+	/** Graph pruner for cleanup. */
+	graphPruner?: GraphPruner;
+}
+
+/**
+ * Factory function for creating Memory Service dependencies.
+ * Returns an object with all initialized services for the memory app.
+ *
+ * @example
+ * // Production usage (uses defaults)
+ * const deps = createMemoryServiceDeps();
+ *
+ * @example
+ * // Test usage (inject mocks)
+ * const deps = createMemoryServiceDeps({
+ *   graphClient: mockGraphClient,
+ *   redisPublisher: mockRedis,
+ * });
+ */
+export function createMemoryServiceDeps(deps?: MemoryServiceDeps): Required<Omit<MemoryServiceDeps, "turnAggregator" | "graphPruner">> & { turnAggregator: TurnAggregator; graphPruner: GraphPruner } {
+	const logger = deps?.logger ?? createNodeLogger(
+		{
+			service: "memory-service",
+			level: "info",
+			base: { component: "server" },
+			pretty: false,
+		},
+		pino.destination(2),
+	);
+
+	const graphClient = deps?.graphClient ?? createFalkorClient();
+	const kafkaClient = deps?.kafkaClient ?? createKafkaClient("memory-service");
+	const redisPublisher = deps?.redisPublisher ?? createRedisPublisher();
+	const graphPruner = deps?.graphPruner ?? new GraphPruner(graphClient);
+
+	// Callback for real-time WebSocket updates
+	const onNodeCreated: NodeCreatedCallback = async (sessionId, node) => {
+		try {
+			await redisPublisher.publishSessionUpdate(sessionId, {
+				type: "graph_node_created",
+				data: {
+					id: node.id,
+					nodeType: node.type,
+					label: node.label,
+					properties: node.properties,
+					timestamp: new Date().toISOString(),
+				},
+			});
+			logger.debug({ sessionId, nodeId: node.id, nodeType: node.type }, "Published graph node event");
+		} catch (e) {
+			logger.error({ err: e, sessionId, nodeId: node.id }, "Failed to publish graph node event");
+		}
+	};
+
+	const turnAggregator = deps?.turnAggregator ?? new TurnAggregator({
+		graphClient,
+		logger,
+		onNodeCreated,
+	});
+
+	return {
+		graphClient,
+		kafkaClient,
+		redisPublisher,
+		logger,
+		turnAggregator,
+		graphPruner,
+	};
+}
 
 // Initialize Logger (stderr for MCP safety)
 const logger = createNodeLogger(
@@ -81,10 +171,30 @@ async function startPersistenceConsumer() {
 
 	await consumer.run({
 		eachMessage: async ({ message }) => {
+			// Define event type for type safety
+			interface ParsedEvent {
+				event_id?: string;
+				original_event_id?: string;
+				type?: string;
+				role?: string;
+				content?: string;
+				thought?: string;
+				timestamp?: string;
+				metadata?: {
+					session_id?: string;
+					working_dir?: string;
+					git_remote?: string;
+					agent_type?: string;
+					user_id?: string;
+				};
+			}
+
+			let event: ParsedEvent | undefined;
+			let rawValue: string | undefined;
 			try {
-				const value = message.value?.toString();
-				if (!value) return;
-				const event = JSON.parse(value);
+				rawValue = message.value?.toString();
+				if (!rawValue) return;
+				event = JSON.parse(rawValue) as ParsedEvent;
 
 				logger.info(
 					{
@@ -170,51 +280,6 @@ async function startPersistenceConsumer() {
 					);
 				}
 
-				// 5. LEGACY ThoughtNode creation - DISABLED
-				// The Turn-based system above handles all node creation now.
-				// Set ENABLE_LEGACY_THOUGHTS=true to re-enable for debugging.
-				if (process.env.ENABLE_LEGACY_THOUGHTS === "true") {
-					const type = event.type || "unknown";
-					const content = event.content || event.thought || "";
-					const role = event.role || "system";
-					const eventId = event.original_event_id || crypto.randomUUID();
-					const eventTimestamp = event.timestamp || new Date().toISOString();
-
-					const createQuery = `
-						MATCH (s:Session {id: $sessionId})
-						CREATE (t:Thought {
-							id: $eventId,
-							type: $type,
-							role: $role,
-							content: $content,
-							vt_start: timestamp(),
-							timestamp: $timestamp
-						})
-						MERGE (s)-[:TRIGGERS]->(t)
-						RETURN t
-					`;
-
-					await falkor.query(createQuery, {
-						sessionId,
-						eventId,
-						type,
-						role,
-						content,
-						timestamp: eventTimestamp,
-					});
-
-					const chainQuery = `
-						MATCH (s:Session {id: $sessionId})-[:TRIGGERS]->(prev:Thought)
-						WHERE prev.id <> $eventId
-						WITH prev ORDER BY prev.vt_start DESC LIMIT 1
-						MATCH (curr:Thought {id: $eventId})
-						MERGE (prev)-[:NEXT]->(curr)
-					`;
-
-					await falkor.query(chainQuery, { sessionId, eventId });
-					logger.info({ eventId, sessionId }, "Persisted legacy thought to graph");
-				}
-
 				// Publish to Redis for real-time WebSocket streaming
 				const eventId = event.original_event_id || crypto.randomUUID();
 				const type = event.type || "unknown";
@@ -240,7 +305,22 @@ async function startPersistenceConsumer() {
 					properties: { content, role, type },
 				});
 			} catch (e) {
+				const errorMessage = e instanceof Error ? e.message : String(e);
 				logger.error({ err: e }, "Persistence error");
+
+				// Send to Dead Letter Queue for later analysis/retry
+				try {
+					const eventId = event?.original_event_id || event?.event_id || `unknown-${Date.now()}`;
+					await kafka.sendEvent("memory.dead_letter", String(eventId), {
+						error: errorMessage,
+						payload: event ?? rawValue,
+						timestamp: new Date().toISOString(),
+						source: "persistence_consumer",
+					});
+					logger.warn({ eventId }, "Sent failed message to memory DLQ");
+				} catch (dlqError) {
+					logger.error({ err: dlqError }, "Failed to send to DLQ");
+				}
 			}
 		},
 	});

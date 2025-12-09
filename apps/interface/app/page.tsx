@@ -7,6 +7,7 @@ import { SearchInput } from "./components/SearchInput";
 import { SearchResults } from "./components/SearchResults";
 import { SearchSettings, type SearchSettingsState } from "./components/SearchSettings";
 import { SessionBrowser } from "./components/SessionBrowser";
+import { Particles } from "./components/shared";
 import { useSearch } from "./hooks/useSearch";
 
 // Dynamically import Three.js background to avoid SSR issues
@@ -14,52 +15,6 @@ const NeuralBackground = dynamic(
 	() => import("./components/NeuralBackground").then((mod) => mod.NeuralBackground),
 	{ ssr: false },
 );
-
-// Floating particle component (fallback/additional particles)
-function Particles() {
-	const [particles, setParticles] = useState<
-		Array<{
-			id: number;
-			x: number;
-			y: number;
-			size: number;
-			duration: number;
-			delay: number;
-		}>
-	>([]);
-
-	useEffect(() => {
-		const newParticles = Array.from({ length: 30 }, (_, i) => ({
-			id: i,
-			x: Math.random() * 100,
-			y: Math.random() * 100,
-			size: Math.random() * 3 + 1,
-			duration: Math.random() * 20 + 15,
-			delay: Math.random() * 10,
-		}));
-		setParticles(newParticles);
-	}, []);
-
-	return (
-		<div className="particles">
-			{particles.map((p) => (
-				<div
-					key={p.id}
-					className="particle"
-					style={{
-						left: `${p.x}%`,
-						top: `${p.y}%`,
-						width: `${p.size}px`,
-						height: `${p.size}px`,
-						animation: `float ${p.duration}s ease-in-out infinite`,
-						animationDelay: `${p.delay}s`,
-						opacity: 0.3 + Math.random() * 0.4,
-					}}
-				/>
-			))}
-		</div>
-	);
-}
 
 // Default search settings
 const DEFAULT_SETTINGS: SearchSettingsState = {
@@ -151,7 +106,7 @@ export default function HomePage() {
 				<Suspense fallback={null}>
 					<NeuralBackground />
 				</Suspense>
-				<Particles />
+				<Particles count={30} />
 			</div>
 
 			{/* Fixed Header - Safe Area */}

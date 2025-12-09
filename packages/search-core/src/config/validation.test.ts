@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { DEFAULT_RERANKER_CONFIG } from "./reranker-config";
 import {
+	DEFAULT_RERANKER_CONFIG,
 	assertValidConfig,
 	validateBusinessLogic,
 	validateComprehensive,
 	validateConfig,
 	validateModelNames,
-} from "./validation";
+} from "./index";
 
 describe("validation", () => {
 	describe("validateConfig", () => {

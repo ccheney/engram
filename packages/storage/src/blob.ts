@@ -1,11 +1,11 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { ErrorCodes, StorageError } from "@engram/common";
+import type { BlobStore } from "./interfaces";
 
-export interface BlobStore {
-	save(content: string): Promise<string>;
-	read(uri: string): Promise<string>;
-}
+// Re-export the interface for backward compatibility
+export type { BlobStore } from "./interfaces";
 
 export class FileSystemBlobStore implements BlobStore {
 	private basePath: string;
@@ -14,7 +14,7 @@ export class FileSystemBlobStore implements BlobStore {
 		this.basePath = basePath;
 	}
 
-	async save(content: string): Promise<string> {
+	async save(content: string | Buffer): Promise<string> {
 		const hash = crypto.createHash("sha256").update(content).digest("hex");
 		const filePath = path.join(this.basePath, hash);
 		// Ensure directory exists
@@ -23,12 +23,19 @@ export class FileSystemBlobStore implements BlobStore {
 		return `file://${filePath}`;
 	}
 
-	async read(uri: string): Promise<string> {
+	async load(uri: string): Promise<string> {
 		if (!uri.startsWith("file://")) {
 			throw new Error(`Invalid URI scheme for FileSystemBlobStore: ${uri}`);
 		}
 		const filePath = uri.slice(7); // Remove 'file://'
 		return fs.readFile(filePath, "utf-8");
+	}
+
+	/**
+	 * @deprecated Use load(uri) instead
+	 */
+	async read(uri: string): Promise<string> {
+		return this.load(uri);
 	}
 }
 
@@ -61,29 +68,36 @@ export class GCSBlobStore implements BlobStore {
 		};
 	}
 
-	async save(content: string): Promise<string> {
+	async save(content: string | Buffer): Promise<string> {
 		const hash = crypto.createHash("sha256").update(content).digest("hex");
 		const fileName = hash;
+		const contentStr = typeof content === "string" ? content : content.toString("utf-8");
+		const uri = `gs://${this.bucket}/${fileName}`;
 
 		try {
 			const storage = await this.getStorage();
 			const bucket = storage.bucket(this.bucket);
 			const file = bucket.file(fileName);
 
-			await file.save(content, {
+			await file.save(contentStr, {
 				contentType: "application/json",
 			});
 
-			return `gs://${this.bucket}/${fileName}`;
+			return uri;
 		} catch (error) {
-			// Fallback to stub behavior if GCS is not available
-			console.warn(`[GCS] Failed to upload, error: ${error}`);
-			console.log(`[GCS Stub] Would upload to gs://${this.bucket}/${hash}`);
-			return `gs://${this.bucket}/${hash}`;
+			// Throw StorageError instead of returning stub URI - silent failures are dangerous
+			const cause = error instanceof Error ? error : undefined;
+			throw new StorageError(
+				`Failed to upload blob to GCS: ${cause?.message || "unknown error"}`,
+				ErrorCodes.STORAGE_WRITE_FAILED,
+				uri,
+				cause,
+				"write",
+			);
 		}
 	}
 
-	async read(uri: string): Promise<string> {
+	async load(uri: string): Promise<string> {
 		if (!uri.startsWith("gs://")) {
 			throw new Error(`Invalid URI scheme for GCSBlobStore: ${uri}`);
 		}
@@ -104,17 +118,39 @@ export class GCSBlobStore implements BlobStore {
 
 			const [exists] = await file.exists();
 			if (!exists) {
-				throw new Error(`File not found: ${uri}`);
+				throw new StorageError(
+					`Blob not found: ${uri}`,
+					ErrorCodes.STORAGE_NOT_FOUND,
+					uri,
+					undefined,
+					"read",
+				);
 			}
 
 			const [contents] = await file.download();
 			return contents.toString("utf-8");
 		} catch (error) {
-			// Fallback to stub behavior if GCS is not available
-			console.warn(`[GCS] Failed to read, error: ${error}`);
-			console.log(`[GCS Stub] Would read from ${uri}`);
-			return "";
+			// Re-throw StorageErrors as-is
+			if (error instanceof StorageError) {
+				throw error;
+			}
+			// Throw StorageError instead of returning empty string - silent failures are dangerous
+			const cause = error instanceof Error ? error : undefined;
+			throw new StorageError(
+				`Failed to read blob from GCS: ${cause?.message || "unknown error"}`,
+				ErrorCodes.STORAGE_READ_FAILED,
+				uri,
+				cause,
+				"read",
+			);
 		}
+	}
+
+	/**
+	 * @deprecated Use load(uri) instead
+	 */
+	async read(uri: string): Promise<string> {
+		return this.load(uri);
 	}
 }
 

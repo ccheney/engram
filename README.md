@@ -193,9 +193,6 @@ engram/
 |----------|-------------|
 | [Tech Stack](./docs/TECH_STACK.md) | Detailed architecture, data flow, and technology choices |
 | [Neural Observatory](./apps/interface/README.md) | Frontend documentation |
-| [Ingestion Pipeline](./apps/ingestion/README.md) | Event processing details |
-| [Memory Service](./apps/memory/README.md) | Graph schema and persistence |
-| [Search Service](./apps/search/README.md) | Hybrid search and reranking |
 
 ---
 
@@ -208,8 +205,6 @@ Receives raw events from CLI agents, parses them using provider-specific handler
 **Kafka Group:** `ingestion-group`
 **Topics:** `raw_events` → `parsed_events`
 
-[Read more →](./apps/ingestion/README.md)
-
 ### Memory Service (MCP stdio)
 
 Persists parsed events to FalkorDB graph, aggregates streaming events into Turn nodes, publishes real-time updates to Redis, and exposes graph queries via MCP tools.
@@ -217,16 +212,12 @@ Persists parsed events to FalkorDB graph, aggregates streaming events into Turn 
 **Kafka Group:** `memory-group`
 **Topics:** `parsed_events` → `memory.node_created`
 
-[Read more →](./apps/memory/README.md)
-
 ### Search Service (Port 5002)
 
 Indexes graph nodes into Qdrant vectors, provides hybrid dense+sparse search with RRF fusion, and applies cross-encoder reranking with configurable model tiers.
 
 **Kafka Group:** `search-group`
 **Topics:** `memory.node_created`
-
-[Read more →](./apps/search/README.md)
 
 ### Control Service
 

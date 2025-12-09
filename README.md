@@ -1,3 +1,5 @@
+> **🚧 Under Construction**: This project is actively being developed. APIs, schemas, and features may change without notice.
+
 # Engram
 
 **A bitemporal, graph-backed memory system for AI coding agents.**

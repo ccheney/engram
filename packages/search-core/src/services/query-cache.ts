@@ -3,11 +3,11 @@ import { createLogger } from "@engram/logger";
 import { RERANK_CONFIG } from "../config";
 import type { BatchedRerankResult } from "./batched-reranker";
 import {
+	computeHitRate,
+	queryCacheHitRate,
+	recordQueryCacheError,
 	recordQueryCacheHit,
 	recordQueryCacheMiss,
-	recordQueryCacheError,
-	queryCacheHitRate,
-	computeHitRate,
 } from "./cache-metrics";
 
 export interface QueryCacheOptions {

@@ -1,5 +1,5 @@
-import { QdrantClient } from "@qdrant/js-client-rest";
 import { createLogger } from "@engram/logger";
+import { QdrantClient } from "@qdrant/js-client-rest";
 import { DEFAULT_SEARCH_CONFIG } from "../config";
 import type { SearchQuery } from "../models/schema";
 import { QueryClassifier } from "./classifier";

@@ -16,7 +16,7 @@ const mockMcp = {
 
 // Mock DecisionEngine
 const mockHandleInput = vi.fn(async () => {});
-mock.module("../engine/decision", () => ({
+vi.mock("../engine/decision", () => ({
 	DecisionEngine: class {
 		start() {}
 		handleInput = mockHandleInput;
@@ -25,7 +25,7 @@ mock.module("../engine/decision", () => ({
 
 // Mock Initializer
 const mockEnsureSession = vi.fn(async () => {});
-mock.module("./initializer", () => ({
+vi.mock("./initializer", () => ({
 	SessionInitializer: class {
 		ensureSession = mockEnsureSession;
 	},
@@ -33,7 +33,7 @@ mock.module("./initializer", () => ({
 
 describe("SessionManager", () => {
 	it("should spawn engine and dispatch input", async () => {
-		const manager = new SessionManager(mockAssembler as any, viMcp as any, mockFalkor as any);
+		const manager = new SessionManager(mockAssembler as any, mockMcp as any, mockFalkor as any);
 		const sessionId = "sess-1";
 		const input = "Hello";
 

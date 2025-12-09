@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock pino before importing existing code
-mock.module("pino", () => {
+vi.mock("pino", () => {
 	const pinoMock = (options: any) => {
 		const createLogger = (opts: any) => {
 			return {
@@ -45,23 +45,23 @@ import { createBrowserLogger } from "./browser";
 
 describe("Browser Logger", () => {
 	// Mock global fetch
-	const mockFetch = vi.fn(async () => new Response("ok"));
+	let mockFetch: ReturnType<typeof spyOn>;
 	const originalFetch = global.fetch;
 	const originalWindow = global.window;
 	const originalDocument = global.document;
 
 	beforeEach(() => {
-		global.fetch = mockFetch;
+		mockFetch = vi.spyOn(global, "fetch").mockImplementation(async () => new Response("ok"));
 		global.window = {
-			addEventListener: vi.fn(() => {}),
+			addEventListener: () => {},
 		} as any;
 		global.document = {
 			visibilityState: "visible",
 		} as any;
-		mockFetch.mockClear();
 	});
 
 	afterEach(() => {
+		mockFetch.mockRestore();
 		global.fetch = originalFetch;
 		global.window = originalWindow;
 		global.document = originalDocument;
@@ -102,7 +102,7 @@ describe("Browser Logger", () => {
 		const callArgs = mockFetch.mock.calls[0];
 		expect(callArgs[0]).toBe("/api/v1/logs/client");
 
-		const body = JSON.parse(callArgs[1].body as string);
+		const body = JSON.parse((callArgs[1] as any).body as string);
 		expect(body.logs).toHaveLength(2);
 		expect(body.logs[0].msg).toBe("Log 1");
 		expect(body.logs[1].msg).toBe("Log 2");

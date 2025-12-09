@@ -8,12 +8,12 @@ const mockGenerateText = vi.fn(async () => ({
 	toolCalls: [],
 }));
 
-mock.module("ai", () => ({
+vi.mock("ai", () => ({
 	generateText: mockGenerateText,
 	tool: vi.fn((config: any) => ({ ...config, _isTool: true })),
 }));
 
-mock.module("@ai-sdk/xai", () => ({
+vi.mock("@ai-sdk/xai", () => ({
 	xai: vi.fn(() => "mock-model"),
 }));
 

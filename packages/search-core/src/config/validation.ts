@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { RerankerConfig } from "./reranker-config";
 import type { RerankerTier } from "../models/schema";
+import type { RerankerConfig } from "./reranker-config";
 
 /**
  * Zod schema for TierConfig validation.

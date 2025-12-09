@@ -16,13 +16,13 @@ Create a `cloudbuild.yaml` that:
 ```yaml
 steps:
   # 1. Install dependencies
-  - name: 'oven/bun:1'
-    entrypoint: 'bun'
-    args: ['install', '--frozen-lockfile']
+  - name: 'node:24'
+    entrypoint: 'npm'
+    args: ['ci']
 
   # 2. Lint & Test
-  - name: 'oven/bun:1'
-    entrypoint: 'bun'
+  - name: 'node:24'
+    entrypoint: 'npm'
     args: ['run', 'turbo', 'run', 'test', 'lint']
 
   # 3. Build & Push Ingestion Service (Conditional on change?)
@@ -30,7 +30,7 @@ steps:
   # Here is a generic step for Ingestion.
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/soul-repo/ingestion:latest', '-f', 'docs/bitemporal/context/system-infrastructure/create-ingestion-service-dockerfile.md', '.']
-  
+
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/soul-repo/ingestion:latest']
 

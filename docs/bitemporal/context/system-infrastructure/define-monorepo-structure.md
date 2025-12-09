@@ -7,8 +7,8 @@ The **System Infrastructure** context lays the groundwork for the entire "Soul" 
 Establish a Turborepo v2.6.3 workspace structure that isolates concerns, enables caching, and supports both local development and GCP deployment.
 
 ## Research & Rationale
--   **Turborepo v2.6.3**: Chosen for its high-performance caching and recent stability improvements with `bun`.
--   **Package Manager**: `bun` (v1.1+) is selected for speed and native TypeScript support, aligning with the "System" project's preference for modern tooling.
+-   **Turborepo v2.6.3**: Chosen for its high-performance caching and stability.
+-   **Package Manager**: `npm` (v11+) is selected for compatibility and native workspace support.
 -   **Structure**:
     -   `apps/`: Deployable services (Cloud Run).
     -   `packages/`: Shared logic (Schemas, Clients, UI Components).
@@ -35,7 +35,7 @@ Establish a Turborepo v2.6.3 workspace structure that isolates concerns, enables
 │   └── eslint-config/      # Shared Linting Rules
 ├── turbo.json              # Turborepo Pipeline Config
 ├── package.json            # Root Config
-└── bun.lockb               # Lockfile
+└── package-lock.json       # Lockfile
 ```
 
 ## Configuration (turbo.json)
@@ -64,5 +64,5 @@ Establish a Turborepo v2.6.3 workspace structure that isolates concerns, enables
 ## Acceptance Criteria
 -   [ ] `turbo.json` created with the schema above.
 -   [ ] `apps/` and `packages/` directories initialized.
--   [ ] `bun` workspace configured in root `package.json`.
--   [ ] `bun install` runs successfully without conflicts.
+-   [ ] `npm` workspace configured in root `package.json`.
+-   [ ] `npm install` runs successfully without conflicts.

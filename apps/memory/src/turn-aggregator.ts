@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { ParsedStreamEvent } from "@engram/events";
 import type { Logger } from "@engram/logger";
-import type { FalkorClient } from "@engram/storage";
 import { ToolCallType, type ToolCallTypeValue } from "@engram/memory-core";
+import type { FalkorClient } from "@engram/storage";
 
 /**
  * TurnAggregator handles the aggregation of streaming events into Turn nodes.

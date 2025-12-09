@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScoreMerger, type MergeStrategy } from "./score-merger";
+import { type MergeStrategy, ScoreMerger } from "./score-merger";
 
 describe("ScoreMerger", () => {
 	describe("constructor", () => {

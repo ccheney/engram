@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useState, useCallback } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { EngramLogo } from "./components/EngramLogo";
 import { SearchInput } from "./components/SearchInput";
 import { SearchResults } from "./components/SearchResults";

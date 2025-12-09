@@ -1,6 +1,6 @@
 import { createLogger } from "@engram/logger";
-import type { RerankerConfig } from "./reranker-config";
 import { loadConfigFromEnv, validateApiKeys } from "./env";
+import type { RerankerConfig } from "./reranker-config";
 
 const logger = createLogger({ component: "RuntimeConfig" });
 

@@ -341,7 +341,7 @@ describe("RateLimiter", () => {
 	describe("Default Configuration", () => {
 		it("should use default config for LLM tier", () => {
 			const limiter = new RateLimiter();
-			const config = limiter["config"];
+			const config = limiter.config;
 
 			expect(config.maxRequests).toBe(100);
 			expect(config.windowMs).toBe(60 * 60 * 1000); // 1 hour

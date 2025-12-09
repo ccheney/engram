@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ColBERTReranker, type CachedDocumentCandidate } from "./colbert-reranker";
-import { ColBERTEmbedder } from "./colbert-embedder";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ColBERTEmbedder } from "./colbert-embedder";
+import { type CachedDocumentCandidate, ColBERTReranker } from "./colbert-reranker";
 
 // Mock logger
 vi.mock("@engram/logger", () => ({

@@ -13,8 +13,8 @@
  * - Run with: bun test src/services/hybrid-search.integration.test.ts
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SpladeEmbedder } from "./splade-embedder";
 import { TextEmbedder } from "./text-embedder";
 

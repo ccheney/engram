@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import {
 	DEFAULT_AB_TESTING_CONFIG,
 	DEFAULT_CACHE_CONFIG,

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BatchedReranker } from "./batched-reranker";
 
 // Mock the @huggingface/transformers pipeline
-const mockPipeline = vi.fn();
+const { mockPipeline } = vi.hoisted(() => {
+	const mockPipeline = vi.fn();
+	return { mockPipeline };
+});
+
 vi.mock("@huggingface/transformers", () => ({
 	pipeline: mockPipeline,
 }));
@@ -17,7 +21,7 @@ describe("Lazy Model Loading with Idle Unload", () => {
 		BatchedReranker.unloadAll();
 
 		// Setup mock pipeline to return a classifier function
-		mockPipeline.mockResolvedValue(async (input: { text: string; text_pair: string }) => {
+		mockPipeline.mockResolvedValue(async (_input: { text: string; text_pair: string }) => {
 			return [{ label: "LABEL_0", score: 0.95 }];
 		});
 	});
@@ -330,7 +334,7 @@ describe("Lazy Model Loading with Idle Unload", () => {
 			});
 
 			// Check default timeout (5 minutes = 300000ms)
-			expect(reranker["idleTimeoutMs"]).toBe(5 * 60 * 1000);
+			expect(reranker.idleTimeoutMs).toBe(5 * 60 * 1000);
 		});
 	});
 });

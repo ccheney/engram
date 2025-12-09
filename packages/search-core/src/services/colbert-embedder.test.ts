@@ -1,32 +1,36 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ColBERTEmbedder } from "./colbert-embedder";
 
 // Mock the feature extraction pipeline for ColBERT
-const mockExtractor = vi.fn(
-	async (_input: string, _opts: { pooling: string; normalize: boolean }) => {
-		// Simulate token-level embeddings: 5 tokens x 128 dimensions
-		const numTokens = 5;
-		const tokenDim = 128;
-		const totalSize = numTokens * tokenDim;
-		const data = new Float32Array(totalSize);
+const { mockExtractor, mockPipeline } = vi.hoisted(() => {
+	const mockExtractor = vi.fn(
+		async (_input: string, _opts: { pooling: string; normalize: boolean }) => {
+			// Simulate token-level embeddings: 5 tokens x 128 dimensions
+			const numTokens = 5;
+			const tokenDim = 128;
+			const totalSize = numTokens * tokenDim;
+			const data = new Float32Array(totalSize);
 
-		// Fill with mock normalized embeddings
-		for (let i = 0; i < totalSize; i++) {
-			data[i] = (i % tokenDim) / tokenDim; // Normalized values [0, 1)
+			// Fill with mock normalized embeddings
+			for (let i = 0; i < totalSize; i++) {
+				data[i] = (i % tokenDim) / tokenDim; // Normalized values [0, 1)
+			}
+
+			return {
+				data,
+				dims: [numTokens, tokenDim],
+			};
+		},
+	);
+
+	const mockPipeline = vi.fn(async (task: string, model: string, _options?: unknown) => {
+		if (task === "feature-extraction" && model === "jinaai/jina-colbert-v2") {
+			return mockExtractor;
 		}
+		throw new Error(`Unknown task or model: ${task}, ${model}`);
+	});
 
-		return {
-			data,
-			dims: [numTokens, tokenDim],
-		};
-	},
-);
-
-const mockPipeline = vi.fn(async (task: string, model: string, _options?: unknown) => {
-	if (task === "feature-extraction" && model === "jinaai/jina-colbert-v2") {
-		return mockExtractor;
-	}
-	throw new Error(`Unknown task or model: ${task}, ${model}`);
+	return { mockExtractor, mockPipeline };
 });
 
 vi.mock("@huggingface/transformers", () => ({

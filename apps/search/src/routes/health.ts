@@ -1,11 +1,6 @@
-import { BatchedReranker } from "@engram/search-core";
-import type { RerankerTier } from "@engram/search-core";
-import {
-	embeddingCacheHitRate,
-	queryCacheHitRate,
-	rerankRequestsCounter,
-} from "@engram/search-core";
 import { createLogger } from "@engram/logger";
+import type { RerankerTier } from "@engram/search-core";
+import { BatchedReranker, embeddingCacheHitRate, queryCacheHitRate } from "@engram/search-core";
 
 const logger = createLogger({ component: "RerankerHealth" });
 

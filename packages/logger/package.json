@@ -7,7 +7,7 @@
 	"devDependencies": {
 		"typescript": "^5.9.3",
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"dependencies": {
 		"pino": "^10.1.0",

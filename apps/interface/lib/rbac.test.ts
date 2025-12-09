@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { requireRole, UserRole } from "./rbac";
 
 // Mock Clerk auth
-mock.module("@clerk/nextjs/server", () => ({
+vi.mock("@clerk/nextjs/server", () => ({
 	auth: vi.fn(() =>
 		Promise.resolve({
 			userId: "user_123",

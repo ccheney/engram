@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { RuntimeConfig } from "./runtime-config";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { DEFAULT_RERANKER_CONFIG } from "./reranker-config";
+import { RuntimeConfig } from "./runtime-config";
 
 describe("RuntimeConfig", () => {
 	// Store original env
@@ -87,7 +87,9 @@ describe("RuntimeConfig", () => {
 			const config = RuntimeConfig.get();
 			expect(config.tiers.fast.model).toBe("custom/model");
 			// Other properties should remain unchanged
-			expect(config.tiers.fast.maxCandidates).toBe(DEFAULT_RERANKER_CONFIG.tiers.fast.maxCandidates);
+			expect(config.tiers.fast.maxCandidates).toBe(
+				DEFAULT_RERANKER_CONFIG.tiers.fast.maxCandidates,
+			);
 			expect(config.tiers.fast.batchSize).toBe(DEFAULT_RERANKER_CONFIG.tiers.fast.batchSize);
 			expect(config.tiers.fast.enabled).toBe(DEFAULT_RERANKER_CONFIG.tiers.fast.enabled);
 		});

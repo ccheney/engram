@@ -7,13 +7,13 @@
 	"devDependencies": {
 		"typescript": "^5.9.3",
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"dependencies": {
 		"zod": "^4.1.13",
 		"ulid": "^3.0.2",
 		"date-fns": "^4.1.0",
-		"@engram/storage": "workspace:*"
+		"@engram/storage": "*"
 	},
 	"scripts": {
 		"build": "echo 'Build success'",

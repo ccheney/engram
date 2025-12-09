@@ -4,10 +4,10 @@
 The Ingestion Service needs to publish `RawStreamEvent` and `ParsedStreamEvent` to Redpanda.
 
 ## Goal
-Configure `kafkajs` (or `bun-kafka` if stable, but `kafkajs` is safer) for the Ingestion app.
+Configure `kafkajs` for the Ingestion app.
 
 ## Research & Rationale
--   **Bun Compatibility**: `kafkajs` works with Bun but might have issues with `ssl`. We should test. If `kafkajs` fails, we can use a small Go/Rust sidecar or `redpanda-connect`. *Assumption: kafkajs works.*
+-   **Node Compatibility**: `kafkajs` works well with Node.js.
 -   **Settings**:
     -   `clientId`: `ingestion-service`
     -   `brokers`: `['redpanda:9092']` (internal K8s DNS)

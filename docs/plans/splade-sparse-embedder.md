@@ -365,8 +365,8 @@ describe("Qdrant Hybrid Search", () => {
 ### 5.1 New Packages
 
 ```bash
-bun add onnxruntime-node
-# or for web: bun add onnxruntime-web
+npm install onnxruntime-node
+# or for web: npm install onnxruntime-web
 ```
 
 ### 5.2 Package Updates

@@ -11,7 +11,7 @@ const mockRedisClient = {
 };
 
 // Mock createClient
-mock.module("redis", () => ({
+vi.mock("redis", () => ({
 	createClient: () => mockRedisClient,
 }));
 
@@ -34,7 +34,7 @@ const mockKafka = {
 	consumer: vi.fn(() => mockConsumer),
 };
 
-mock.module("kafkajs", () => ({
+vi.mock("kafkajs", () => ({
 	Kafka: class {
 		constructor() {
 			return mockKafka;

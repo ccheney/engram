@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import type { FalkorClient } from "@engram/storage";
+import { describe, expect, it, vi } from "vitest";
 import { GraphMerger } from "./merger";
 
 describe("GraphMerger", () => {

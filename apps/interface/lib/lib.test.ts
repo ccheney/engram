@@ -4,7 +4,7 @@ import { apiError, apiSuccess } from "./api-response";
 import { validate } from "./validate";
 
 // Mock NextResponse
-mock.module("next/server", () => ({
+vi.mock("next/server", () => ({
 	NextResponse: {
 		json: (body: any, init?: any) => ({ body, init }),
 	},

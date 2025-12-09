@@ -1,6 +1,6 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { QueryCache, type CacheKey } from "./query-cache";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BatchedRerankResult } from "./batched-reranker";
+import { type CacheKey, QueryCache } from "./query-cache";
 
 // Mock ioredis
 const mockRedis = {

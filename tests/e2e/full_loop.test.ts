@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { RawStreamEventSchema } from "@engram/events";
 import { createKafkaClient } from "@engram/storage";
+import { describe, expect, it } from "vitest";
 
 const kafka = createKafkaClient("e2e-test");
 

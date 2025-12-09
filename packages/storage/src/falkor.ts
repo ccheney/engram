@@ -221,7 +221,7 @@ export class FalkorClient {
 	): Promise<FalkorResult<T>> {
 		if (!this.graph) await this.connect();
 		// After connect(), graph is guaranteed to be set
-		const result = await this.graph!.query(cypher, { params });
+		const result = await this.graph?.query(cypher, { params });
 		return result.data as FalkorResult<T>;
 	}
 

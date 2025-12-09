@@ -27,4 +27,4 @@ apps/control/
 ## Acceptance Criteria
 -   [ ] `apps/control` created.
 -   [ ] `mastra` installed.
--   [ ] Basic "Hello World" agent runnable via `bun run dev`.
+-   [ ] Basic "Hello World" agent runnable via `npm run dev`.

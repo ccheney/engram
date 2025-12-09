@@ -1,5 +1,5 @@
-import { pipeline } from "@huggingface/transformers";
 import { createLogger } from "@engram/logger";
+import { pipeline } from "@huggingface/transformers";
 import { RERANK_CONFIG } from "../config";
 import type { RerankerTier } from "../models/schema";
 import { recordRerankMetrics } from "./reranker-metrics";

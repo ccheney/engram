@@ -96,7 +96,7 @@ export class RerankerRouter {
 	 * Check if LLM reranking should be used for this query.
 	 * LLM tier is only used when explicitly requested or for very high-value queries.
 	 */
-	shouldUseLLM(query: string, options: RoutingOptions = {}): boolean {
+	shouldUseLLM(_query: string, options: RoutingOptions = {}): boolean {
 		// LLM tier must be explicitly forced for now
 		if (options.forceTier === "llm") {
 			return true;

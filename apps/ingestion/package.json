@@ -3,15 +3,15 @@
 	"version": "0.0.0",
 	"type": "module",
 	"dependencies": {
-		"@engram/logger": "workspace:*",
-		"@engram/events": "workspace:*",
-		"@engram/storage": "workspace:*",
-		"@engram/ingestion-core": "workspace:*",
+		"@engram/logger": "*",
+		"@engram/events": "*",
+		"@engram/storage": "*",
+		"@engram/ingestion-core": "*",
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"scripts": {
 		"dev": "tsx --env-file=.env src/index.ts",

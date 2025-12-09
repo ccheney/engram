@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SnapshotManager } from "./snapshot-manager";
 
 // Mock QdrantClient
-mock.module("@qdrant/js-client-rest", () => {
+vi.mock("@qdrant/js-client-rest", () => {
 	return {
 		QdrantClient: class {
 			async createSnapshot(_collection: string) {

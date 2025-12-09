@@ -7,10 +7,10 @@
 	"devDependencies": {
 		"typescript": "^5.9.3",
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"dependencies": {
-		"@engram/logger": "workspace:*",
+		"@engram/logger": "*",
 		"@huggingface/transformers": "^3.8.1",
 		"@qdrant/js-client-rest": "^1.16.2",
 		"ioredis": "^5.8.2",

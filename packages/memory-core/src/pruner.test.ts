@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, type MockedFunction, vi } from "vitest";
 import { GraphPruner } from "./pruner";
 
 describe("GraphPruner", () => {
-	let mockFalkorQuery: Mock;
+	let mockFalkorQuery: MockedFunction<any>;
 	let mockFalkorClient: { query: Mock };
 
 	beforeEach(() => {

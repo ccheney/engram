@@ -1,7 +1,6 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { LLMListwiseReranker } from "./llm-reranker";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocumentCandidate } from "./batched-reranker";
-import { RateLimiter } from "./rate-limiter";
+import { LLMListwiseReranker } from "./llm-reranker";
 
 // Mock XAIClient
 vi.mock("../clients/xai-client", () => ({

@@ -1,20 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import { CodeEmbedder } from "./code-embedder";
 
-const mockExtractor = vi.fn(async (_input: string) => {
-	return {
-		data: new Float32Array([0.9, 0.8, 0.7]),
-	};
+const { mockPipeline, mockExtractor } = vi.hoisted(() => {
+	const mockExtractor = vi.fn(async (_input: string) => {
+		return {
+			data: new Float32Array([0.9, 0.8, 0.7]),
+		};
+	});
+
+	const mockPipeline = vi.fn(async (task: string, _model: string) => {
+		if (task === "feature-extraction") {
+			return mockExtractor;
+		}
+		throw new Error("Unknown task");
+	});
+
+	return { mockPipeline, mockExtractor };
 });
 
-const mockPipeline = vi.fn(async (task: string, _model: string) => {
-	if (task === "feature-extraction") {
-		return mockExtractor;
-	}
-	throw new Error("Unknown task");
-});
-
-mock.module("@huggingface/transformers", () => ({
+vi.mock("@huggingface/transformers", () => ({
 	pipeline: mockPipeline,
 }));
 

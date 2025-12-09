@@ -1,13 +1,13 @@
 import { createLogger } from "@engram/logger";
 import { RERANK_CONFIG } from "../config";
 import {
-	recordEmbeddingCacheHit,
-	recordEmbeddingCacheMiss,
-	recordEmbeddingCacheEviction,
-	embeddingCacheSize,
+	computeHitRate,
 	embeddingCacheCount,
 	embeddingCacheHitRate,
-	computeHitRate,
+	embeddingCacheSize,
+	recordEmbeddingCacheEviction,
+	recordEmbeddingCacheHit,
+	recordEmbeddingCacheMiss,
 } from "./cache-metrics";
 
 export interface EmbeddingCacheOptions {

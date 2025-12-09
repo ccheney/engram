@@ -7,17 +7,17 @@
 		"@ai-sdk/xai": "^2.0.39",
 		"@mastra/core": "^0.24.6",
 		"@modelcontextprotocol/sdk": "^1.24.3",
-		"@engram/logger": "workspace:*",
-		"@engram/memory-core": "workspace:*",
-		"@engram/search-core": "workspace:*",
-		"@engram/storage": "workspace:*",
+		"@engram/logger": "*",
+		"@engram/memory-core": "*",
+		"@engram/search-core": "*",
+		"@engram/storage": "*",
 		"ai": "^5.0.108",
 		"xstate": "^5.24.0",
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"scripts": {
 		"dev": "tsx --env-file=.env src/index.ts",

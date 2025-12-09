@@ -10,7 +10,7 @@ const mockEmbedder = {
 	embedSparse: vi.fn(async () => ({ indices: [100, 200, 300], values: [0.5, 0.3, 0.2] })),
 };
 
-mock.module("@qdrant/js-client-rest", () => ({
+vi.mock("@qdrant/js-client-rest", () => ({
 	QdrantClient: class {
 		constructor() {
 			return mockQdrantClient;
@@ -18,7 +18,7 @@ mock.module("@qdrant/js-client-rest", () => ({
 	},
 }));
 
-mock.module("./text-embedder", () => ({
+vi.mock("./text-embedder", () => ({
 	TextEmbedder: class {
 		constructor() {
 			return mockEmbedder;
@@ -28,7 +28,7 @@ mock.module("./text-embedder", () => ({
 	},
 }));
 
-mock.module("./code-embedder", () => ({
+vi.mock("./code-embedder", () => ({
 	CodeEmbedder: class {
 		constructor() {
 			return mockEmbedder;

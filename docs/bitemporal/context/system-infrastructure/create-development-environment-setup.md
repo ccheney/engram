@@ -8,7 +8,7 @@ Create a `docker-compose.yml` for dependencies and a `Turborepo` dev command for
 
 ## Strategy
 1.  **Dependencies**: Use `docker-compose` to run Redpanda, FalkorDB, and Qdrant.
-2.  **Services**: Run apps directly on host via `bun run dev` (Turborepo parallel execution) to utilize hot-reloading. Running apps in Docker locally is often too slow for dev cycles.
+2.  **Services**: Run apps directly on host via `npm run dev` (Turborepo parallel execution) to utilize hot-reloading. Running apps in Docker locally is often too slow for dev cycles.
 
 ## `docker-compose.dev.yml`
 ```yaml
@@ -39,6 +39,6 @@ services:
 ## Acceptance Criteria
 -   [ ] `docker-compose.dev.yml` created in root.
 -   [ ] `README.md` updated with "Getting Started" instructions:
-    1.  `bun install`
-    2.  `bun run infra:up`
-    3.  `bun run dev`
+    1.  `npm install`
+    2.  `npm run infra:up`
+    3.  `npm run dev`

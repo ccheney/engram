@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { envBool, envNum, envStr, loadConfigFromEnv, validateApiKeys } from "./env";
 import { DEFAULT_TIER_CONFIGS } from "./reranker-config";
 
@@ -230,9 +230,7 @@ describe("env", () => {
 			const config = loadConfigFromEnv();
 			config.tiers.llm.enabled = true;
 
-			expect(() => validateApiKeys(config)).toThrow(
-				"XAI_API_KEY environment variable is required"
-			);
+			expect(() => validateApiKeys(config)).toThrow("XAI_API_KEY environment variable is required");
 		});
 
 		test("should not throw when LLM tier is enabled and XAI_API_KEY is set", () => {

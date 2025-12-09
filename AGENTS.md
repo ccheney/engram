@@ -4,7 +4,7 @@ A bitemporal, graph-backed intelligent agent system designed as a TypeScript mon
 
 ## Project Structure
 
-This project is a **Turborepo** monorepo managed with **Bun**.
+This project is a **Turborepo** monorepo managed with **npm**.
 
 - **`apps/`**: Application services.
   - `control`: Likely the orchestration or management layer.
@@ -27,22 +27,23 @@ The system relies on the following services (defined in `docker-compose.dev.yml`
 ## Development Workflow
 
 ### Prerequisites
-- **Bun** (v1.1+)
+- **Node.js** (v24+)
+- **npm** (v11+)
 - **Docker** & **Docker Compose**
 
 ### Key Commands
 
 | Command | Description |
 | :--- | :--- |
-| `bun install` | Install dependencies for all workspaces. |
-| `bun infra:up` | Start local infrastructure (Redpanda, FalkorDB, Qdrant). |
-| `bun infra:down` | Stop local infrastructure. |
-| `bun dev` | Start all applications in development mode (parallel). |
-| `bun test` | Execute tests. |
-| `bun typecheck` | Run TypeScript type checking across the monorepo. |
-| `bun lint` | Run Biome linting. |
-| `bun format` | Run Biome formatting. |
-| `bun run build` | Build all apps and packages. |
+| `npm install` | Install dependencies for all workspaces. |
+| `npm run infra:up` | Start local infrastructure (Redpanda, FalkorDB, Qdrant). |
+| `npm run infra:down` | Stop local infrastructure. |
+| `npm run dev` | Start all applications in development mode (parallel). |
+| `npm test` | Execute tests. |
+| `npm run typecheck` | Run TypeScript type checking across the monorepo. |
+| `npm run lint` | Run Biome linting. |
+| `npm run format` | Run Biome formatting. |
+| `npm run build` | Build all apps and packages. |
 
 ## Coding Standards
 
@@ -52,7 +53,7 @@ The system relies on the following services (defined in `docker-compose.dev.yml`
   - **Line Width**: 100 characters.
   - **Imports**: Organized automatically.
 - **Dependency Injection**: NestJS is likely used (inferred from `control`/`apps` structure common in backend TS), requiring careful handling of imports (avoid `import type` for DI tokens). *Verify per app.*
-- **Package Manager**: Use `bun` for all package operations.
+- **Package Manager**: Use `npm` for all package operations.
 
 ## Architecture Notes
 

@@ -6,7 +6,7 @@ const mockConnect = vi.fn(async () => {});
 const mockListTools = vi.fn(async () => ({ tools: [{ name: "test-tool" }] }));
 const mockCallTool = vi.fn(async () => ({ content: [] }));
 
-mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
+vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
 	Client: class {
 		connect = mockConnect;
 		listTools = mockListTools;
@@ -15,12 +15,12 @@ mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
 }));
 
 // Mock Transport
-mock.module("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
 	StdioClientTransport: class {},
 }));
 
 // Mock Mastra
-mock.module("@mastra/core/workflows", () => ({
+vi.mock("@mastra/core/workflows", () => ({
 	createStep: (obj: Record<string, unknown>) => ({ ...obj, _isStep: true }),
 }));
 

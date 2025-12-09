@@ -1,6 +1,6 @@
 import { createRedisSubscriber, type SessionUpdate } from "@engram/storage/redis";
 import { WebSocket } from "ws";
-import { getSessionLineage, getSessionTimeline, getSessionsForWebSocket } from "./graph-queries";
+import { getSessionLineage, getSessionsForWebSocket, getSessionTimeline } from "./graph-queries";
 
 const redisSubscriber = createRedisSubscriber();
 

@@ -13,11 +13,11 @@
  * - Run with: cd packages/search-core && bun test reranker-integration.test.ts
  */
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import { SearchRetriever } from "./retriever";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BatchedReranker, type DocumentCandidate } from "./batched-reranker";
 import { RerankerRouter } from "./reranker-router";
+import { SearchRetriever } from "./retriever";
 import { TextEmbedder } from "./text-embedder";
 
 const TEST_COLLECTION = "reranker_integration_test";
@@ -140,7 +140,7 @@ describe("Reranker Pipeline Integration", () => {
 
 			// Results should have rerankerScore OR be fallback (if timeout occurred)
 			// Check if we got reranked results or fallback
-			const hasRerankerScore = results.some((r) => r.hasOwnProperty("rerankerScore"));
+			const hasRerankerScore = results.some((r) => Object.hasOwn(r, "rerankerScore"));
 
 			if (hasRerankerScore) {
 				// Reranking succeeded

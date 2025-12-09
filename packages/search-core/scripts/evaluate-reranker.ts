@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Quality evaluation script for reranker.
  *
@@ -13,8 +14,8 @@
  * the reranker's quality. It compares results with and without reranking.
  */
 
-import { BatchedReranker, type DocumentCandidate } from "../src/services/batched-reranker";
 import type { RerankerTier } from "../src/models/schema";
+import { BatchedReranker, type DocumentCandidate } from "../src/services/batched-reranker";
 
 // =============================================================================
 // Test Data
@@ -274,7 +275,7 @@ async function evaluateTier(tier: RerankerTier): Promise<EvaluationResult> {
  * Print evaluation results in a formatted table.
  */
 function printResults(results: EvaluationResult[]): void {
-	console.log("\n" + "=".repeat(80));
+	console.log(`\n${"=".repeat(80)}`);
 	console.log("RERANKER QUALITY EVALUATION RESULTS");
 	console.log("=".repeat(80));
 	console.log();

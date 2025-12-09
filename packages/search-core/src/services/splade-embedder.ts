@@ -1,4 +1,4 @@
-import { AutoTokenizer, AutoModel, type Tensor } from "@huggingface/transformers";
+import { AutoModel, AutoTokenizer, type Tensor } from "@huggingface/transformers";
 
 /**
  * SPLADE sparse embedder using ONNX model.
@@ -11,7 +11,6 @@ import { AutoTokenizer, AutoModel, type Tensor } from "@huggingface/transformers
 export class SpladeEmbedder {
 	// Model configuration
 	private static readonly MODEL_NAME = "sparse-encoder-testing/splade-bert-tiny-nq-onnx";
-	private static readonly VOCAB_SIZE = 30522; // BERT vocabulary size
 
 	// Singleton instances (lazy loaded)
 	private static model: Awaited<ReturnType<typeof AutoModel.from_pretrained>> | null = null;

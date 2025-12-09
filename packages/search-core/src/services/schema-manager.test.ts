@@ -5,7 +5,7 @@ const mockCreateCollection = vi.fn(async () => {});
 const mockDeleteCollection = vi.fn(async () => {});
 const mockGetCollections = vi.fn(async () => ({ collections: [] }));
 
-mock.module("@qdrant/js-client-rest", () => {
+vi.mock("@qdrant/js-client-rest", () => {
 	return {
 		QdrantClient: class {
 			createCollection = mockCreateCollection;

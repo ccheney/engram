@@ -1,5 +1,5 @@
 import { createLogger } from "@engram/logger";
-import { z } from "zod";
+import type { z } from "zod";
 
 export interface ChatMessage {
 	role: "system" | "user" | "assistant";
@@ -240,7 +240,7 @@ export class XAIClient {
 
 				// Handle server errors with exponential backoff retry
 				if (response.status >= 500 && retryCount < this.maxRetries) {
-					const delayMs = Math.pow(2, retryCount) * 1000; // Exponential backoff
+					const delayMs = 2 ** retryCount * 1000; // Exponential backoff
 
 					this.logger.warn({
 						msg: "Server error - retrying with exponential backoff",
@@ -265,7 +265,7 @@ export class XAIClient {
 
 			// Retry on network errors
 			if (retryCount < this.maxRetries && this.isNetworkError(error)) {
-				const delayMs = Math.pow(2, retryCount) * 1000;
+				const delayMs = 2 ** retryCount * 1000;
 
 				this.logger.warn({
 					msg: "Network error - retrying with exponential backoff",

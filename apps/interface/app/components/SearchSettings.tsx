@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import type { RerankerTier } from "@engram/search-core";
+import { useEffect, useRef, useState } from "react";
 
 export interface SearchSettingsState {
 	rerank: boolean;
@@ -292,9 +292,7 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 								style={{
 									width: "28px",
 									height: "14px",
-									background: settings.rerank
-										? "rgba(34, 197, 94, 0.3)"
-										: "rgba(71, 85, 105, 0.3)",
+									background: settings.rerank ? "rgba(34, 197, 94, 0.3)" : "rgba(71, 85, 105, 0.3)",
 									borderRadius: "7px",
 									position: "relative",
 									transition: "background 0.2s ease",
@@ -330,7 +328,7 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 					>
 						{/* Left Column: Tier Selection */}
 						<div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-							<label
+							<span
 								style={{
 									fontSize: "8px",
 									fontFamily: "JetBrains Mono, monospace",
@@ -341,7 +339,7 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 								}}
 							>
 								Tier
-							</label>
+							</span>
 							<div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
 								{/* Auto - Full Width Featured Option */}
 								<button
@@ -393,7 +391,8 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 										style={{
 											fontSize: "7px",
 											fontFamily: "JetBrains Mono, monospace",
-											color: selectedTier === "auto" ? "rgba(251, 191, 36, 0.7)" : "rgb(100, 116, 139)",
+											color:
+												selectedTier === "auto" ? "rgba(251, 191, 36, 0.7)" : "rgb(100, 116, 139)",
 										}}
 									>
 										Smart routing
@@ -482,7 +481,7 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 						<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
 							{/* Depth Selection */}
 							<div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-								<label
+								<span
 									style={{
 										fontSize: "8px",
 										fontFamily: "JetBrains Mono, monospace",
@@ -493,7 +492,7 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 									}}
 								>
 									Depth
-								</label>
+								</span>
 								<div
 									style={{
 										display: "grid",

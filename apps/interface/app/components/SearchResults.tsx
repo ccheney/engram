@@ -1,8 +1,8 @@
 "use client";
 
+import type { SearchMeta, SearchResult } from "@app/hooks/useSearch";
 import { useRouter } from "next/navigation";
-import { useState, useMemo } from "react";
-import type { SearchResult, SearchMeta } from "@app/hooks/useSearch";
+import { useState } from "react";
 
 interface SearchResultsProps {
 	results: SearchResult[];
@@ -73,7 +73,7 @@ const TYPE_CONFIG = {
 
 function truncateContent(content: string, maxLength: number = 120): string {
 	if (content.length <= maxLength) return content;
-	return content.slice(0, maxLength).trim() + "...";
+	return `${content.slice(0, maxLength).trim()}...`;
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -161,9 +161,7 @@ function RerankerBadge({ tier, degraded }: { tier: string; degraded?: boolean })
 					</>
 				) : (
 					// Sparkle/star for reranked
-					<>
-						<path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-					</>
+					<path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
 				)}
 			</svg>
 			{/* Label */}

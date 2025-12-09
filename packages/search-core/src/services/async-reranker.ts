@@ -1,6 +1,6 @@
-import { createLogger } from "@engram/logger";
-import type { BatchedReranker, DocumentCandidate, BatchedRerankResult } from "./batched-reranker";
 import { randomBytes } from "node:crypto";
+import { createLogger } from "@engram/logger";
+import type { BatchedReranker, BatchedRerankResult, DocumentCandidate } from "./batched-reranker";
 
 const logger = createLogger({ component: "AsyncReranker" });
 

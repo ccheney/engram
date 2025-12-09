@@ -3,16 +3,16 @@
 	"version": "0.0.0",
 	"type": "module",
 	"dependencies": {
-		"@engram/execution-core": "workspace:*",
-		"@engram/logger": "workspace:*",
-		"@engram/storage": "workspace:*",
-		"@engram/vfs": "workspace:*",
+		"@engram/execution-core": "*",
+		"@engram/logger": "*",
+		"@engram/storage": "*",
+		"@engram/vfs": "*",
 		"@modelcontextprotocol/sdk": "^1.24.3",
 		"zod": "^3.25.76"
 	},
 	"devDependencies": {
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"scripts": {
 		"dev": "tsx --env-file=.env src/index.ts",

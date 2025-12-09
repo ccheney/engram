@@ -116,7 +116,7 @@ async function runCodexHeadless(prompt: string): Promise<void> {
 
 					// Send to ingestion API
 					await sendToIngestion(event);
-				} catch (parseErr) {
+				} catch (_parseErr) {
 					console.error(`⚠️ Failed to parse: ${line.slice(0, 100)}...`);
 				}
 			}

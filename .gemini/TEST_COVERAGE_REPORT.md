@@ -35,7 +35,7 @@ To facilitate testing without side effects (like connecting to real databases or
 You can run all tests from the root:
 
 ```bash
-bun test
+npm test
 ```
 
 All tests are passing.

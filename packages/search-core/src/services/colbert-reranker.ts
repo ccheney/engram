@@ -1,6 +1,6 @@
-import { ColBERTEmbedder } from "./colbert-embedder";
-import type { BatchedRerankResult } from "./batched-reranker";
 import { createLogger } from "@engram/logger";
+import type { BatchedRerankResult } from "./batched-reranker";
+import type { ColBERTEmbedder } from "./colbert-embedder";
 
 /**
  * CachedDocumentCandidate extends the base DocumentCandidate with optional

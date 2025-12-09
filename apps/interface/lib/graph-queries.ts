@@ -212,7 +212,7 @@ export async function getSessionLineage(sessionId: string): Promise<LineageData>
 			const pathNodes = row.path_nodes;
 			if (Array.isArray(pathNodes)) {
 				for (const n of pathNodes) {
-					if (n && n.nodeProps) {
+					if (n?.nodeProps) {
 						const uuid = n.nodeProps.id as string | undefined;
 						if (uuid) {
 							internalIdToUuid.set(n.nodeId, uuid);

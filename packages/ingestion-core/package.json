@@ -7,12 +7,12 @@
 	"devDependencies": {
 		"typescript": "^5.9.3",
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*",
+		"@engram/tsconfig": "*",
 		"@types/google-libphonenumber": "^7.4.30"
 	},
 	"dependencies": {
 		"google-libphonenumber": "^3.2.43",
-		"@engram/events": "workspace:*"
+		"@engram/events": "*"
 	},
 	"scripts": {
 		"build": "echo 'Build success'",

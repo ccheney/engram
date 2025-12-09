@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { XAIClient } from "./xai-client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { XAIClient } from "./xai-client";
 
 // Mock fetch
 const mockFetch = vi.fn();

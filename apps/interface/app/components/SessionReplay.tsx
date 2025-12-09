@@ -1017,7 +1017,7 @@ function StatsHeader({ messages }: { messages: ConsolidatedMessage[] }) {
 }
 
 // Timestamp badge
-function TimestampBadge({ timestamp }: { timestamp: string }) {
+function _TimestampBadge({ timestamp }: { timestamp: string }) {
 	const formatTime = (ts: string) => {
 		try {
 			return new Date(ts).toLocaleTimeString([], {

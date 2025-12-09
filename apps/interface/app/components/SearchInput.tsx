@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useCallback, useEffect, useRef } from "react";
 import type { SearchMode } from "@app/hooks/useSearch";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface SearchInputProps {
 	value: string;

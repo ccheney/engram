@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, it } from "vitest";
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { createFalkorClient, createKafkaClient } from "../../packages/storage/src/index";
 
 // Real Clients

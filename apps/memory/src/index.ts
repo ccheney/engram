@@ -5,7 +5,7 @@ import { createRedisPublisher } from "@engram/storage/redis";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { TurnAggregator, type NodeCreatedCallback } from "./turn-aggregator";
+import { type NodeCreatedCallback, TurnAggregator } from "./turn-aggregator";
 
 // Initialize Logger (stderr for MCP safety)
 const logger = createNodeLogger(

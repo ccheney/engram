@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Deduplicator } from "./deduplicator";
 
 // Mock dependencies
-mock.module("./text-embedder", () => {
+vi.mock("./text-embedder", () => {
 	return {
 		TextEmbedder: class {
 			async embed(_text: string) {
@@ -12,7 +12,7 @@ mock.module("./text-embedder", () => {
 	};
 });
 
-mock.module("@qdrant/js-client-rest", () => {
+vi.mock("@qdrant/js-client-rest", () => {
 	return {
 		QdrantClient: class {
 			async search(_collection: string, params: any) {

@@ -1,10 +1,8 @@
 import { z } from "zod";
 import type { RerankerTier } from "../models/schema";
 import {
-	DEFAULT_AB_TESTING_CONFIG,
 	DEFAULT_CACHE_CONFIG,
 	DEFAULT_RATE_LIMIT_CONFIG,
-	DEFAULT_RERANKER_CONFIG,
 	DEFAULT_ROUTING_CONFIG,
 	DEFAULT_TIER_CONFIGS,
 	type RerankerConfig,

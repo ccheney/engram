@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
-import { useMemo, useState, useCallback, useEffect } from "react";
 
 export interface SearchResultPayload {
 	content: string;

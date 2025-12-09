@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 // Mock dependencies BEFORE import
-mock.module("@modelcontextprotocol/sdk/server/mcp.js", () => ({
+vi.mock("@modelcontextprotocol/sdk/server/mcp.js", () => ({
 	McpServer: class {
 		registerTool = vi.fn(() => {});
 		connect = vi.fn(async () => {});

@@ -7,19 +7,19 @@ The **Memory Service** interacts with FalkorDB and Redpanda. It requires robust 
 Create a `Dockerfile` for the Memory Service.
 
 ## Specifications
--   **Base Image**: `node:20-alpine` (If specific native bindings for FalkorDB require Node over Bun, otherwise default to `oven/bun:1-alpine`. *Decision: Stick to Bun unless proven incompatible.*)
+-   **Base Image**: `node:24-alpine`
 -   **Ports**: Expose `8080`.
 
 ## Dockerfile
 
 ```dockerfile
-FROM oven/bun:1 AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 COPY . .
-RUN bun install --frozen-lockfile
-RUN bun run build --filter=memory...
+RUN npm ci
+RUN npm run build --filter=memory...
 
-FROM oven/bun:1-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup -S soul && adduser -S soul -G soul
@@ -29,7 +29,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 USER soul
 EXPOSE 8080
-CMD ["bun", "run", "dist/index.js"]
+CMD ["node", "dist/index.js"]
 ```
 
 ## Acceptance Criteria

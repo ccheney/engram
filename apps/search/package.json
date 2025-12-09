@@ -3,13 +3,13 @@
 	"version": "0.0.0",
 	"type": "module",
 	"dependencies": {
-		"@engram/logger": "workspace:*",
-		"@engram/storage": "workspace:*",
-		"@engram/search-core": "workspace:*"
+		"@engram/logger": "*",
+		"@engram/storage": "*",
+		"@engram/search-core": "*"
 	},
 	"devDependencies": {
 		"@types/node": "^24.10.1",
-		"@engram/tsconfig": "workspace:*"
+		"@engram/tsconfig": "*"
 	},
 	"scripts": {
 		"dev": "tsx --env-file=.env src/index.ts",

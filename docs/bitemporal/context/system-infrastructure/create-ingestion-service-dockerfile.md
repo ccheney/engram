@@ -7,7 +7,7 @@ The **Ingestion Service** handles high-throughput raw event streams. It must be 
 Create a production-ready `Dockerfile` for the Ingestion Service, optimized for Cloud Run deployment.
 
 ## Specifications
--   **Base Image**: `oven/bun:1-alpine` (Smallest footprint, fastest startup).
+-   **Base Image**: `node:24-alpine` (Smallest footprint, fastest startup).
 -   **Ports**: Expose `8080` (Cloud Run default).
 -   **Optimization**: Multi-stage build to prune dev dependencies.
 
@@ -15,18 +15,18 @@ Create a production-ready `Dockerfile` for the Ingestion Service, optimized for 
 
 ```dockerfile
 # Stage 1: Builder
-FROM oven/bun:1 AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
-COPY package.json bun.lockb turbo.json ./
+COPY package.json package-lock.json turbo.json ./
 COPY apps/ingestion ./apps/ingestion
 COPY packages ./packages
 # Install dependencies (including dev for build steps)
-RUN bun install --frozen-lockfile
+RUN npm ci
 # Build the application
-RUN bun run build --filter=ingestion...
+RUN npm run build --filter=ingestion...
 
 # Stage 2: Runner
-FROM oven/bun:1-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
@@ -42,7 +42,7 @@ COPY --from=builder /app/apps/ingestion/package.json ./
 USER soul
 EXPOSE 8080
 
-CMD ["bun", "run", "dist/index.js"]
+CMD ["node", "dist/index.js"]
 ```
 
 ## Acceptance Criteria

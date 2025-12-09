@@ -1,7 +1,7 @@
-import type { BatchedReranker } from "../src/services/batched-reranker";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createLogger } from "@engram/logger";
+import type { BatchedReranker } from "../src/services/batched-reranker";
 
 const logger = createLogger({ component: "RerankerEvaluation" });
 
@@ -310,8 +310,7 @@ export async function evaluateReranker(
 export async function main() {
 	const args = process.argv.slice(2);
 
-	const judgmentsFile =
-		args[0] || join(__dirname, "fixtures", "relevance-judgments.json");
+	const judgmentsFile = args[0] || join(__dirname, "fixtures", "relevance-judgments.json");
 	const tier = (args[1] || "fast") as "fast" | "accurate" | "code";
 
 	logger.info({

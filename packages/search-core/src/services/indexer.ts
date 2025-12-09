@@ -1,7 +1,7 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { CodeEmbedder } from "./code-embedder";
-import { TextEmbedder } from "./text-embedder";
 import { ColBERTEmbedder } from "./colbert-embedder";
+import { TextEmbedder } from "./text-embedder";
 
 export interface IndexableNode {
 	id: string;

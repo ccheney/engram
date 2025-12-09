@@ -83,8 +83,8 @@ This report provides an exhaustive analysis of the Engram platform's implementat
 
 **Specification (create-development-environment-setup.md):**
 - Docker Compose for dependencies (Redpanda, FalkorDB, Qdrant)
-- `bun run infra:up` / `bun run infra:down` commands
-- `bun run dev` for parallel service execution
+- `npm run infra:up` / `npm run infra:down` commands
+- `npm run dev` for parallel service execution
 
 **Implementation Status:** ✅ **FULLY IMPLEMENTED**
 
@@ -98,12 +98,12 @@ services:
 
 | Command | Spec | Implementation |
 |---------|------|----------------|
-| `bun run infra:up` | Start DBs | ✅ Implemented |
-| `bun run infra:down` | Stop DBs | ✅ Implemented |
-| `bun run dev` | Start services | ✅ Implemented |
-| `bun run build` | Build all | ✅ Implemented |
-| `bun run test` | Run tests | ✅ Implemented |
-| `bun run lint` | Lint code | ✅ Biome configured |
+| `npm run infra:up` | Start DBs | ✅ Implemented |
+| `npm run infra:down` | Stop DBs | ✅ Implemented |
+| `npm run dev` | Start services | ✅ Implemented |
+| `npm run build` | Build all | ✅ Implemented |
+| `npm run test` | Run tests | ✅ Implemented |
+| `npm run lint` | Lint code | ✅ Biome configured |
 
 ### 1.3 Cloud Infrastructure (GCP)
 

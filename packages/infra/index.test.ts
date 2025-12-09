@@ -12,7 +12,7 @@ const mockResource = class {
 	id: string;
 };
 
-mock.module("@pulumi/pulumi", () => ({
+vi.mock("@pulumi/pulumi", () => ({
 	all: (args: any[]) => ({
 		apply: (fn: Function) => fn(args.map((_a) => "mock-value")),
 	}),
@@ -21,7 +21,7 @@ mock.module("@pulumi/pulumi", () => ({
 	},
 }));
 
-mock.module("@pulumi/gcp", () => ({
+vi.mock("@pulumi/gcp", () => ({
 	config: {
 		project: "test-project",
 		zone: "test-zone",

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @engram/storage before importing
 const mockBlobStoreRead = vi.fn(async () => "{}");
-mock.module("@engram/storage", () => ({
+vi.mock("@engram/storage", () => ({
 	createBlobStore: () => ({
 		read: mockBlobStoreRead,
 		write: vi.fn(async () => {}),

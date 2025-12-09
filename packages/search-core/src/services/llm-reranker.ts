@@ -1,7 +1,7 @@
 import { createLogger } from "@engram/logger";
 import { z } from "zod";
 import { XAIClient } from "../clients/xai-client";
-import type { DocumentCandidate, BatchedRerankResult } from "./batched-reranker";
+import type { BatchedRerankResult, DocumentCandidate } from "./batched-reranker";
 import { RateLimiter } from "./rate-limiter";
 import { recordRerankMetrics } from "./reranker-metrics";
 

@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
+import { DEFAULT_RERANKER_CONFIG } from "./reranker-config";
 import {
 	assertValidConfig,
 	validateBusinessLogic,
@@ -6,7 +7,6 @@ import {
 	validateConfig,
 	validateModelNames,
 } from "./validation";
-import { DEFAULT_RERANKER_CONFIG } from "./reranker-config";
 
 describe("validation", () => {
 	describe("validateConfig", () => {

@@ -6,6 +6,7 @@ export * from "./services/code-embedder";
 export * from "./services/deduplicator";
 export * from "./services/indexer";
 export * from "./services/reranker";
+export * from "./services/reranker-router";
 export * from "./services/retriever";
 export * from "./services/schema-manager";
 export * from "./services/snapshot-manager";

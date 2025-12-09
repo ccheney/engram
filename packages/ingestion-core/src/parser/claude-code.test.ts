@@ -30,7 +30,7 @@ describe("ClaudeCodeParser", () => {
 			expect(result?.type).toBe("content");
 			expect(result?.content).toBe("4");
 			expect(result?.role).toBe("assistant");
-			expect(result?.usage).toEqual({ input: 100, output: 5 });
+			expect(result?.usage).toEqual({ input: 100, output: 5, cacheRead: 0, cacheWrite: 0 });
 			expect(result?.stopReason).toBe("end_turn");
 		});
 
@@ -148,7 +148,8 @@ describe("ClaudeCodeParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("usage");
-			expect(result?.usage).toEqual({ input: 200, output: 10 });
+			expect(result?.usage).toEqual({ input: 200, output: 10, cacheRead: 0, cacheWrite: 0 });
+			expect(result?.timing).toEqual({ duration: 1234 });
 		});
 
 		it("should return null for result with no usage", () => {

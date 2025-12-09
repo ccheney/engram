@@ -57,12 +57,19 @@ export class ClaudeCodeParser implements ParserStrategy {
 				}
 			}
 
-			// Extract usage info
+			// Extract usage info with cache metrics
 			if (usage) {
 				delta.usage = {
 					input: (usage.input_tokens as number) || 0,
 					output: (usage.output_tokens as number) || 0,
+					cacheRead: (usage.cache_read_input_tokens as number) || 0,
+					cacheWrite: (usage.cache_creation_input_tokens as number) || 0,
 				};
+			}
+
+			// Extract model from the message
+			if (message.model) {
+				delta.model = message.model as string;
 			}
 
 			// Extract stop reason
@@ -105,7 +112,7 @@ export class ClaudeCodeParser implements ParserStrategy {
 			return null;
 		}
 
-		// Handle result events (final summary)
+		// Handle result events (final summary with cost, duration, session)
 		if (type === "result") {
 			const result = p.result as string | undefined;
 			const usage = p.usage as Record<string, unknown> | undefined;
@@ -121,8 +128,30 @@ export class ClaudeCodeParser implements ParserStrategy {
 				delta.usage = {
 					input: (usage.input_tokens as number) || 0,
 					output: (usage.output_tokens as number) || 0,
+					cacheRead: (usage.cache_read_input_tokens as number) || 0,
+					cacheWrite: (usage.cache_creation_input_tokens as number) || 0,
 				};
 				delta.type = "usage";
+			}
+
+			// Extract cost
+			if (p.total_cost_usd !== undefined) {
+				delta.cost = p.total_cost_usd as number;
+			}
+
+			// Extract timing
+			const durationMs = p.duration_ms as number | undefined;
+			const durationApiMs = p.duration_api_ms as number | undefined;
+			if (durationMs !== undefined || durationApiMs !== undefined) {
+				delta.timing = {
+					duration: durationMs || durationApiMs,
+				};
+			}
+
+			// Extract session ID
+			const sessionId = p.session_id as string | undefined;
+			if (sessionId) {
+				delta.session = { id: sessionId };
 			}
 
 			return Object.keys(delta).length > 0 ? delta : null;
@@ -134,10 +163,20 @@ export class ClaudeCodeParser implements ParserStrategy {
 
 			// Init events contain metadata about the session
 			if (subtype === "init") {
-				return {
+				const delta: StreamDelta = {
 					type: "content",
 					content: `[Session Init] model=${p.model}, tools=${(p.tools as string[])?.length || 0}`,
 				};
+
+				if (p.model) {
+					delta.model = p.model as string;
+				}
+
+				if (p.session_id) {
+					delta.session = { id: p.session_id as string };
+				}
+
+				return delta;
 			}
 
 			// Hook responses contain hook output

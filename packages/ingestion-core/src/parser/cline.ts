@@ -35,7 +35,7 @@ export class ClineParser implements ParserStrategy {
 			};
 		}
 
-		// Handle api_req_started events (contains usage info)
+		// Handle api_req_started events (contains usage info with cache metrics and cost)
 		if (sayType === "api_req_started" && text) {
 			try {
 				const apiData = JSON.parse(text) as Record<string, unknown>;
@@ -45,20 +45,29 @@ export class ClineParser implements ParserStrategy {
 				// Only return usage if we have actual token counts
 				if (tokensIn === 0 && tokensOut === 0) return null;
 
-				return {
+				const delta: StreamDelta = {
 					type: "usage",
 					usage: {
 						input: tokensIn,
 						output: tokensOut,
+						cacheRead: (apiData.cacheReads as number) || 0,
+						cacheWrite: (apiData.cacheWrites as number) || 0,
 					},
 				};
+
+				// Extract cost if present
+				if (apiData.cost !== undefined && apiData.cost !== 0) {
+					delta.cost = apiData.cost as number;
+				}
+
+				return delta;
 			} catch {
 				// Invalid JSON in text field, skip
 				return null;
 			}
 		}
 
-		// Handle api_req_finished events (also contains usage info)
+		// Handle api_req_finished events (also contains usage info with cache and cost)
 		if (sayType === "api_req_finished" && text) {
 			try {
 				const apiData = JSON.parse(text) as Record<string, unknown>;
@@ -68,13 +77,22 @@ export class ClineParser implements ParserStrategy {
 				// Only return usage if we have actual token counts
 				if (tokensIn === 0 && tokensOut === 0) return null;
 
-				return {
+				const delta: StreamDelta = {
 					type: "usage",
 					usage: {
 						input: tokensIn,
 						output: tokensOut,
+						cacheRead: (apiData.cacheReads as number) || 0,
+						cacheWrite: (apiData.cacheWrites as number) || 0,
 					},
 				};
+
+				// Extract cost if present
+				if (apiData.cost !== undefined && apiData.cost !== 0) {
+					delta.cost = apiData.cost as number;
+				}
+
+				return delta;
 			} catch {
 				return null;
 			}

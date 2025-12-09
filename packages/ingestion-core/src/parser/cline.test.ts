@@ -80,7 +80,7 @@ describe("ClineParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("usage");
-			expect(result?.usage).toEqual({ input: 10, output: 210 });
+			expect(result?.usage).toEqual({ input: 10, output: 210, cacheRead: 7982, cacheWrite: 2670 });
 		});
 
 		it("should return null for zero token counts", () => {
@@ -141,7 +141,8 @@ describe("ClineParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("usage");
-			expect(result?.usage).toEqual({ input: 500, output: 150 });
+			expect(result?.usage).toEqual({ input: 500, output: 150, cacheRead: 0, cacheWrite: 0 });
+			expect(result?.cost).toBe(0.001);
 		});
 	});
 

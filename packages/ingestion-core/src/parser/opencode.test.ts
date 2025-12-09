@@ -169,7 +169,16 @@ describe("OpenCodeParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("usage");
-			expect(result?.usage).toEqual({ input: 4794, output: 1 });
+			expect(result?.usage).toEqual({
+				input: 4794,
+				output: 1,
+				reasoning: 82,
+				cacheRead: 8147,
+				cacheWrite: 0,
+			});
+			expect(result?.cost).toBe(0.0122134);
+			expect(result?.gitSnapshot).toBe("1367efd5cc155116e36e75903033888058819df1");
+			expect(result?.stopReason).toBe("stop");
 		});
 
 		it("should return null for step_finish without tokens", () => {

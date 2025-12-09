@@ -19,10 +19,21 @@ export class GeminiParser implements ParserStrategy {
 		if (type === "init") {
 			const sessionId = p.session_id as string;
 			const model = p.model as string;
-			return {
+
+			const delta: StreamDelta = {
 				type: "content",
 				content: `[Session Init] model=${model}, session_id=${sessionId}`,
 			};
+
+			if (model) {
+				delta.model = model;
+			}
+
+			if (sessionId) {
+				delta.session = { id: sessionId };
+			}
+
+			return delta;
 		}
 
 		// Handle message events (user or assistant content)
@@ -85,13 +96,28 @@ export class GeminiParser implements ParserStrategy {
 			const stats = p.stats as Record<string, unknown> | undefined;
 			if (!stats) return null;
 
-			return {
+			const delta: StreamDelta = {
 				type: "usage",
 				usage: {
 					input: (stats.input_tokens as number) || 0,
 					output: (stats.output_tokens as number) || 0,
+					total: (stats.total_tokens as number) || 0,
 				},
 			};
+
+			// Extract timing from stats.duration_ms
+			const durationMs = stats.duration_ms as number | undefined;
+			if (durationMs !== undefined) {
+				delta.timing = { duration: durationMs };
+			}
+
+			// Extract status as stop reason
+			const status = p.status as string | undefined;
+			if (status) {
+				delta.stopReason = status;
+			}
+
+			return delta;
 		}
 
 		// Ignore other event types

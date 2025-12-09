@@ -97,7 +97,7 @@ export class CodexParser implements ParserStrategy {
 			return null;
 		}
 
-		// Handle turn.completed events (usage stats)
+		// Handle turn.completed events (usage stats with cached tokens)
 		if (type === "turn.completed") {
 			const usage = p.usage as Record<string, unknown> | undefined;
 			if (!usage) return null;
@@ -107,6 +107,7 @@ export class CodexParser implements ParserStrategy {
 				usage: {
 					input: (usage.input_tokens as number) || 0,
 					output: (usage.output_tokens as number) || 0,
+					cacheRead: (usage.cached_input_tokens as number) || 0,
 				},
 			};
 		}
@@ -117,6 +118,7 @@ export class CodexParser implements ParserStrategy {
 			return {
 				type: "content",
 				content: `[Thread Started: ${threadId}]`,
+				session: { threadId },
 			};
 		}
 

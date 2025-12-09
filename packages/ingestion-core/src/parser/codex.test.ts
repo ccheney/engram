@@ -17,6 +17,7 @@ describe("CodexParser", () => {
 			expect(result?.type).toBe("content");
 			expect(result?.content).toContain("[Thread Started:");
 			expect(result?.content).toContain("019b006e-2144-7642-afc2-c3053bf96ddd");
+			expect(result?.session).toEqual({ threadId: "019b006e-2144-7642-afc2-c3053bf96ddd" });
 		});
 	});
 
@@ -189,7 +190,7 @@ describe("CodexParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("usage");
-			expect(result?.usage).toEqual({ input: 4792, output: 7 });
+			expect(result?.usage).toEqual({ input: 4792, output: 7, cacheRead: 3072 });
 		});
 
 		it("should return null for turn.completed without usage", () => {

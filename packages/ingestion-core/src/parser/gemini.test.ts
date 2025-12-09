@@ -20,6 +20,8 @@ describe("GeminiParser", () => {
 			expect(result?.content).toContain("[Session Init]");
 			expect(result?.content).toContain("model=auto");
 			expect(result?.content).toContain("session_id=34ba2452-a37c-4ebf-84ad-1b61b7ca6297");
+			expect(result?.model).toBe("auto");
+			expect(result?.session).toEqual({ id: "34ba2452-a37c-4ebf-84ad-1b61b7ca6297" });
 		});
 	});
 
@@ -151,7 +153,9 @@ describe("GeminiParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("usage");
-			expect(result?.usage).toEqual({ input: 12592, output: 48 });
+			expect(result?.usage).toEqual({ input: 12592, output: 48, total: 12831 });
+			expect(result?.timing).toEqual({ duration: 2541 });
+			expect(result?.stopReason).toBe("success");
 		});
 
 		it("should return null for result without stats", () => {

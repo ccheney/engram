@@ -22,11 +22,34 @@ export class OpenCodeParser implements ParserStrategy {
 			const text = part.text as string;
 			if (!text) return null;
 
-			return {
+			const delta: StreamDelta = {
 				type: "content",
 				role: "assistant",
 				content: text,
 			};
+
+			// Extract timing from part.time
+			const time = part.time as Record<string, unknown> | undefined;
+			if (time) {
+				delta.timing = {
+					start: time.start as number,
+					end: time.end as number,
+				};
+			}
+
+			// Extract session info
+			const sessionID = p.sessionID as string | undefined;
+			const messageID = (part.messageID as string) || undefined;
+			const partId = part.id as string | undefined;
+			if (sessionID || messageID || partId) {
+				delta.session = {
+					id: sessionID,
+					messageId: messageID,
+					partId: partId,
+				};
+			}
+
+			return delta;
 		}
 
 		// Handle tool_use events
@@ -52,7 +75,7 @@ export class OpenCodeParser implements ParserStrategy {
 			};
 		}
 
-		// Handle step_finish events with token usage
+		// Handle step_finish events with token usage, cost, git snapshot
 		if (type === "step_finish") {
 			const part = p.part as Record<string, unknown> | undefined;
 			if (!part) return null;
@@ -66,13 +89,46 @@ export class OpenCodeParser implements ParserStrategy {
 			// Only return usage if we have actual token counts
 			if (inputTokens === 0 && outputTokens === 0) return null;
 
-			return {
+			const cache = tokens.cache as Record<string, unknown> | undefined;
+			const delta: StreamDelta = {
 				type: "usage",
 				usage: {
 					input: inputTokens,
 					output: outputTokens,
+					reasoning: (tokens.reasoning as number) || 0,
+					cacheRead: cache?.read as number,
+					cacheWrite: cache?.write as number,
 				},
 			};
+
+			// Extract cost
+			if (part.cost !== undefined) {
+				delta.cost = part.cost as number;
+			}
+
+			// Extract git snapshot
+			if (part.snapshot) {
+				delta.gitSnapshot = part.snapshot as string;
+			}
+
+			// Extract stop reason
+			if (part.reason) {
+				delta.stopReason = part.reason as string;
+			}
+
+			// Extract session info
+			const sessionID = p.sessionID as string | undefined;
+			const messageID = (part.messageID as string) || undefined;
+			const partId = part.id as string | undefined;
+			if (sessionID || messageID || partId) {
+				delta.session = {
+					id: sessionID,
+					messageId: messageID,
+					partId: partId,
+				};
+			}
+
+			return delta;
 		}
 
 		// Handle step_start events (optional: could log for debugging)

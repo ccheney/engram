@@ -261,26 +261,26 @@ export default function HomePage() {
 						transform: mounted ? "translateY(0)" : "translateY(2rem)",
 					}}
 				>
-					{/* Search Input + Settings Row */}
+					{/* Search Input */}
+					<SearchInput
+						value={searchQuery}
+						onChange={setSearchQuery}
+						mode={mode}
+						detectedUUID={detectedUUID}
+						isLoading={isLoading}
+						isDebouncing={isDebouncing}
+						resultCount={results.length}
+					/>
+
+					{/* Settings Row - Below search, aligned right */}
 					<div
 						style={{
 							display: "flex",
-							alignItems: "flex-start",
-							gap: "12px",
+							justifyContent: "flex-end",
+							marginTop: "12px",
 							marginBottom: "2rem",
 						}}
 					>
-						<div style={{ flex: 1 }}>
-							<SearchInput
-								value={searchQuery}
-								onChange={setSearchQuery}
-								mode={mode}
-								detectedUUID={detectedUUID}
-								isLoading={isLoading}
-								isDebouncing={isDebouncing}
-								resultCount={results.length}
-							/>
-						</div>
 						<SearchSettings settings={searchSettings} onChange={handleSettingsChange} />
 					</div>
 

@@ -57,23 +57,35 @@ BGE-M3 (BAAI/bge-m3) supports hybrid retrieval with:
 2. ✅ Use proper tokenizer (from transformers.js) instead of hash
 3. ~~Store corpus statistics in Qdrant collection metadata~~ (deferred)
 
-### Medium-term (Tracked: the-system-djr)
-If sparse retrieval quality is insufficient:
-1. Convert SPLADE-distilbert to ONNX
-2. Implement SpladePooling in JavaScript
-3. Benchmark against improved BM25
+### Medium-term (Tracked: the-system-djr) - RESEARCH COMPLETE
 
-**Detailed Implementation Steps:**
+**Status:** Pre-converted ONNX models now available on HuggingFace!
+
+#### Available SPLADE ONNX Models (as of Dec 2024)
+
+| Model | Size | Notes |
+|-------|------|-------|
+| `sparse-encoder-testing/splade-bert-tiny-nq-onnx` | 4.42M params | **Best for JS** - tiny, fast |
+| `andersonbcdefg/distilbert-splade-onnx` | 66.4M params | DistilBERT-based |
+| `castorini/splade-v3-onnx` | ~110M params | Official SPLADE v3 |
+| `onnx-models/Splade_PP_en_v1-onnx` | 0.41 GB | Dense output (768d), not sparse |
+
+#### Recommended: `splade-bert-tiny-nq-onnx`
+- **Output:** 30,522-dimensional sparse vectors
+- **Architecture:** MLMTransformer + SpladePooling(max, relu)
+- **License:** Apache 2.0
+- **Performance:** NanoBEIR Mean NDCG@10 = 0.2627
+
+#### Implementation Path for JavaScript
+
+1. **No manual ONNX conversion needed** - use pre-converted model
+2. Load ONNX model with `onnxruntime-web` or `transformers.js`
+3. Apply SpladePooling post-processing (if not baked into model)
+
+**Detailed Implementation Steps (UPDATED):**
 ```bash
-# 1. Install Optimum for ONNX conversion (Python)
-pip install optimum[exporters]
-
-# 2. Convert model to ONNX
-optimum-cli export onnx --model naver/splade-v3-distilbert ./splade-onnx/
-
-# 3. The output will include:
-#    - model.onnx (the transformer model)
-#    - tokenizer files (tokenizer.json, vocab.txt, etc.)
+# No conversion needed! Use pre-converted model:
+# sparse-encoder-testing/splade-bert-tiny-nq-onnx
 ```
 
 **JavaScript SpladePooling Implementation:**
@@ -110,13 +122,26 @@ function spladePooling(mlmLogits: Float32Array, vocabSize: number): { indices: n
 
 ### Long-term
 Monitor transformers.js for:
-- Official SPLADE ONNX model releases
-- Native sparse encoder support
+- ~~Official SPLADE ONNX model releases~~ ✅ Now available!
+- Native sparse encoder support in transformers.js
 - FastEmbed JS library availability
+
+### Next Steps (If Implementing)
+
+1. **Download and test** `sparse-encoder-testing/splade-bert-tiny-nq-onnx`
+2. **Create SpladeEmbedder class** in `packages/search-core/src/services/`
+3. **Benchmark** against current BM25Sparse implementation
+4. **Integrate** with Qdrant sparse vector search
+
+Estimated effort reduced from 3-5 days to **1-2 days** due to pre-converted models.
 
 ## Sources
 - [SPLADE GitHub](https://github.com/naver/splade)
 - [naver/splade-v3](https://huggingface.co/naver/splade-v3)
 - [Sentence Transformers Sparse Encoder](https://sbert.net/examples/sparse_encoder/applications/computing_embeddings/README.html)
+- [Sentence Transformers v5.0 Release](https://github.com/UKPLab/sentence-transformers/releases/tag/v5.0.0)
+- [Training Sparse Encoders Blog](https://huggingface.co/blog/train-sparse-encoder)
+- [SPLADE ONNX Models on HuggingFace](https://huggingface.co/models?search=splade+onnx)
+- [splade-bert-tiny-nq-onnx](https://huggingface.co/sparse-encoder-testing/splade-bert-tiny-nq-onnx)
 - [Pinecone SPLADE Guide](https://www.pinecone.io/learn/splade/)
 - [Transformers.js Documentation](https://huggingface.co/docs/transformers.js)

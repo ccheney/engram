@@ -236,6 +236,7 @@ async function startPersistenceConsumer() {
 				await kafka.sendEvent("memory.node_created", eventId, {
 					id: eventId,
 					labels: ["Turn"], // Changed from Thought to Turn
+					session_id: sessionId,
 					properties: { content, role, type },
 				});
 			} catch (e) {

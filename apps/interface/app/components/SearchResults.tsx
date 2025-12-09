@@ -78,9 +78,8 @@ function truncateId(id: string): string {
 
 // Score bar visualization
 function ScoreBar({ score }: { score: number }) {
-	// RRF scores are typically small (< 0.1), normalize for display
-	// For hybrid search, scores are rank-based fusion scores
-	const normalizedScore = Math.min(score * 10, 1); // Scale up for visibility
+	// RRF fusion scores typically range 0-1, display as-is
+	const normalizedScore = Math.min(Math.max(score, 0), 1);
 	const percentage = Math.round(normalizedScore * 100);
 
 	return (

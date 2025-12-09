@@ -295,24 +295,6 @@ npm run infra:down
 
 ---
 
-## Contributing
-
-This is a Turborepo monorepo using npm workspaces.
-
-**Code Style:**
-- Formatter/Linter: [Biome](https://biomejs.dev/)
-- Indentation: Tabs
-- Quotes: Double quotes
-- Line width: 100 characters
-
-**Workflow:**
-1. Create a feature branch
-2. Make changes
-3. Run `npm run typecheck && npm run lint`
-4. Submit PR
-
----
-
 ## License
 
-MIT
+AGPL-3.0 license

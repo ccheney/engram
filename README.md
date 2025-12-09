@@ -6,7 +6,7 @@
 
 Engram captures, persists, and visualizes the complete reasoning trace of AI coding assistants like Claude Code, Codex CLI, and others. Every thought, tool call, file edit, and decision is preserved in a knowledge graph with full temporal history—enabling replay, search, and deep analysis of how AI agents solve problems.
 
-<video src="./docs/preview.webm" controls width="100%"></video>
+<video src="./docs/preview.mp4" controls width="100%"></video>
 
 ---
 

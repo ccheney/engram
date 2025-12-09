@@ -38,12 +38,9 @@ export class SearchRetriever {
 
 		const effectiveThreshold = threshold ?? DEFAULT_SEARCH_CONFIG.minScore[strategy];
 
-		// Determine which vector field and embedder to use based on type filter
+		// Determine which vector field to use based on type filter
 		const isCodeSearch = filters?.type === "code";
 		const vectorName = isCodeSearch ? "code_dense" : "text_dense";
-		const vector = isCodeSearch
-			? await this.codeEmbedder.embedQuery(text)
-			: await this.textEmbedder.embedQuery(text);
 
 		// Build Filter
 		const filter: Record<string, unknown> = {};
@@ -61,7 +58,11 @@ export class SearchRetriever {
 		}
 
 		// Dense Search
-		if (strategy === "dense" || strategy === "hybrid") {
+		if (strategy === "dense") {
+			const vector = isCodeSearch
+				? await this.codeEmbedder.embedQuery(text)
+				: await this.textEmbedder.embedQuery(text);
+
 			const denseResults = await this.client.search(this.collectionName, {
 				vector: {
 					name: vectorName,
@@ -73,17 +74,63 @@ export class SearchRetriever {
 				score_threshold: effectiveThreshold,
 			});
 
-			if (strategy === "dense") return denseResults;
-
-			// If hybrid, we would also do sparse search and fuse.
-			// For V1, we return dense results filtered by threshold.
 			return denseResults;
 		}
 
-		// Sparse Search (TODO)
+		// Hybrid Search (Dense + Sparse with RRF Fusion)
+		if (strategy === "hybrid") {
+			// Generate both dense and sparse query vectors in parallel
+			const [denseVector, sparseVector] = await Promise.all([
+				isCodeSearch
+					? this.codeEmbedder.embedQuery(text)
+					: this.textEmbedder.embedQuery(text),
+				this.textEmbedder.embedSparseQuery(text),
+			]);
+
+			// Prefetch from both vector spaces, fuse with RRF
+			const results = await this.client.query(this.collectionName, {
+				prefetch: [
+					{
+						query: denseVector,
+						using: vectorName,
+						limit: limit * 2, // Oversample for fusion
+					},
+					{
+						query: {
+							indices: sparseVector.indices,
+							values: sparseVector.values,
+						},
+						using: "sparse",
+						limit: limit * 2,
+					},
+				],
+				query: { fusion: "rrf" },
+				filter: Object.keys(filter).length > 0 ? filter : undefined,
+				limit,
+				with_payload: true,
+				// No score_threshold with RRF (scores are rank-based, not similarity-based)
+			});
+
+			return results.points;
+		}
+
+		// Sparse Search
 		if (strategy === "sparse") {
-			// ...
-			return [];
+			const sparseVector = await this.textEmbedder.embedSparseQuery(text);
+
+			const results = await this.client.query(this.collectionName, {
+				query: {
+					indices: sparseVector.indices,
+					values: sparseVector.values,
+				},
+				using: "sparse",
+				filter: Object.keys(filter).length > 0 ? filter : undefined,
+				limit,
+				with_payload: true,
+				score_threshold: effectiveThreshold,
+			});
+
+			return results.points;
 		}
 	}
 }

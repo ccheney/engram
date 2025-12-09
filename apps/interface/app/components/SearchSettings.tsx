@@ -100,7 +100,7 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 				onClick={() => setIsOpen(!isOpen)}
 				aria-expanded={isOpen}
 				aria-haspopup="true"
-				aria-label="Configure reranker settings"
+				aria-label={`Configure reranker settings (currently ${settings.rerank ? "enabled" : "disabled"})`}
 				style={{
 					display: "flex",
 					alignItems: "center",
@@ -108,10 +108,16 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 					padding: "8px 12px",
 					background: isOpen
 						? "linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(0, 245, 212, 0.1))"
-						: "rgba(15, 20, 30, 0.6)",
+						: settings.rerank
+							? "linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(15, 20, 30, 0.6))"
+							: "rgba(15, 20, 30, 0.6)",
 					backdropFilter: "blur(12px)",
 					WebkitBackdropFilter: "blur(12px)",
-					border: isOpen ? "1px solid rgba(251, 191, 36, 0.4)" : "1px solid rgba(71, 85, 105, 0.3)",
+					border: isOpen
+						? "1px solid rgba(251, 191, 36, 0.4)"
+						: settings.rerank
+							? "1px solid rgba(34, 197, 94, 0.25)"
+							: "1px solid rgba(71, 85, 105, 0.3)",
 					borderRadius: "8px",
 					color: isOpen ? "rgb(251, 191, 36)" : "rgb(148, 163, 184)",
 					fontSize: "11px",
@@ -122,21 +128,44 @@ export function SearchSettings({ settings, onChange }: SearchSettingsProps) {
 					transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
 					boxShadow: isOpen
 						? "0 4px 20px rgba(251, 191, 36, 0.15), inset 0 1px 0 rgba(251, 191, 36, 0.1)"
-						: "0 2px 8px rgba(0, 0, 0, 0.2)",
+						: settings.rerank
+							? "0 2px 12px rgba(34, 197, 94, 0.1), 0 2px 8px rgba(0, 0, 0, 0.2)"
+							: "0 2px 8px rgba(0, 0, 0, 0.2)",
 				}}
 				onMouseEnter={(e) => {
 					if (!isOpen) {
-						e.currentTarget.style.background = "rgba(15, 20, 30, 0.8)";
-						e.currentTarget.style.borderColor = "rgba(71, 85, 105, 0.5)";
+						e.currentTarget.style.background = settings.rerank
+							? "linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(15, 20, 30, 0.8))"
+							: "rgba(15, 20, 30, 0.8)";
+						e.currentTarget.style.borderColor = settings.rerank
+							? "rgba(34, 197, 94, 0.35)"
+							: "rgba(71, 85, 105, 0.5)";
 					}
 				}}
 				onMouseLeave={(e) => {
 					if (!isOpen) {
-						e.currentTarget.style.background = "rgba(15, 20, 30, 0.6)";
-						e.currentTarget.style.borderColor = "rgba(71, 85, 105, 0.3)";
+						e.currentTarget.style.background = settings.rerank
+							? "linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(15, 20, 30, 0.6))"
+							: "rgba(15, 20, 30, 0.6)";
+						e.currentTarget.style.borderColor = settings.rerank
+							? "rgba(34, 197, 94, 0.25)"
+							: "rgba(71, 85, 105, 0.3)";
 					}
 				}}
 			>
+				{/* Status Indicator Dot */}
+				<div
+					style={{
+						width: "6px",
+						height: "6px",
+						borderRadius: "50%",
+						backgroundColor: settings.rerank ? "rgb(34, 197, 94)" : "rgb(71, 85, 105)",
+						boxShadow: settings.rerank
+							? "0 0 6px rgba(34, 197, 94, 0.8), 0 0 12px rgba(34, 197, 94, 0.4)"
+							: "none",
+						transition: "all 0.3s ease",
+					}}
+				/>
 				{/* Gear Icon */}
 				<svg
 					width="14"

@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { VirtualFileSystem } from "@engram/vfs";
 import type { Rehydrator } from "./rehydrator";
 import { TimeTravelService } from "./time-travel";
@@ -6,11 +6,11 @@ import { TimeTravelService } from "./time-travel";
 // Mock VirtualFileSystem
 const mockVFS = new VirtualFileSystem();
 mockVFS.root = { "test.txt": "content" }; // simplistic mock of root
-mockVFS.readDir = mock(() => ["test.txt"]);
+mockVFS.readDir = vi.fn(() => ["test.txt"]);
 
 // Mock Rehydrator
 const mockRehydrator = {
-	rehydrate: mock(async (_sessionId: string, _targetTime: number) => {
+	rehydrate: vi.fn(async (_sessionId: string, _targetTime: number) => {
 		return mockVFS;
 	}),
 } as unknown as Rehydrator;

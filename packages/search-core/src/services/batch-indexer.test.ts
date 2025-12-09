@@ -1,10 +1,10 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { BatchIndexer } from "./batch-indexer";
 import type { SearchIndexer } from "./indexer";
 
 describe("BatchIndexer", () => {
 	it("should buffer items and flush on limit", async () => {
-		const mockIndexNode = mock(async () => {});
+		const mockIndexNode = vi.fn(async () => {});
 		const mockIndexer = {
 			indexNode: mockIndexNode,
 		} as unknown as SearchIndexer;
@@ -26,7 +26,7 @@ describe("BatchIndexer", () => {
 	});
 
 	it("should flush on timeout", async () => {
-		const mockIndexNode = mock(async () => {});
+		const mockIndexNode = vi.fn(async () => {});
 		const mockIndexer = {
 			indexNode: mockIndexNode,
 		} as unknown as SearchIndexer;
@@ -43,7 +43,7 @@ describe("BatchIndexer", () => {
 	});
 
 	it("should flush on shutdown", async () => {
-		const mockIndexNode = mock(async () => {});
+		const mockIndexNode = vi.fn(async () => {});
 		const mockIndexer = {
 			indexNode: mockIndexNode,
 		} as unknown as SearchIndexer;

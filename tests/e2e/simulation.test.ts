@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { ContextAssembler } from "../../apps/control/src/context/assembler";
 import { DecisionEngine } from "../../apps/control/src/engine/decision";
 import { McpToolAdapter } from "../../apps/control/src/tools/mcp_client";
@@ -7,9 +7,9 @@ import { ThinkingExtractor } from "../../packages/ingestion-core/src/index";
 
 // Mocks
 const mockMcp = new McpToolAdapter("echo", []);
-mockMcp.connect = mock(async () => {});
-mockMcp.listTools = mock(async () => [{ name: "read_file", description: "read", parameters: {} }]);
-mockMcp.createMastraStep = mock(
+mockMcp.connect = vi.fn(async () => {});
+mockMcp.listTools = vi.fn(async () => [{ name: "read_file", description: "read", parameters: {} }]);
+mockMcp.createMastraStep = vi.fn(
 	(name) =>
 		({
 			id: name,
@@ -21,12 +21,12 @@ mockMcp.createMastraStep = mock(
 );
 
 const mockFalkor = {
-	connect: mock(async () => {}),
-	query: mock(async () => []),
+	connect: vi.fn(async () => {}),
+	query: vi.fn(async () => []),
 };
 
 const mockSearch = {
-	search: mock(async () => []),
+	search: vi.fn(async () => []),
 };
 
 describe("System E2E Simulation", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 
 // Mock Pulumi
 const mockResource = class {

@@ -1,10 +1,10 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { GraphWriter } from "./graph";
 
 const mockFalkorClient = {
-	connect: mock(async () => {}),
-	query: mock(async () => []),
-	disconnect: mock(async () => {}),
+	connect: vi.fn(async () => {}),
+	query: vi.fn(async () => []),
+	disconnect: vi.fn(async () => {}),
 };
 
 describe("GraphWriter", () => {

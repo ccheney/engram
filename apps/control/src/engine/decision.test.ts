@@ -1,20 +1,20 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 
 // Test the helper functions by importing them directly
 // We'll mock the external dependencies
 
-const mockGenerateText = mock(async () => ({
+const mockGenerateText = vi.fn(async () => ({
 	text: "Test response",
 	toolCalls: [],
 }));
 
 mock.module("ai", () => ({
 	generateText: mockGenerateText,
-	tool: mock((config: any) => ({ ...config, _isTool: true })),
+	tool: vi.fn((config: any) => ({ ...config, _isTool: true })),
 }));
 
 mock.module("@ai-sdk/xai", () => ({
-	xai: mock(() => "mock-model"),
+	xai: vi.fn(() => "mock-model"),
 }));
 
 // Import the module to test

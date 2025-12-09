@@ -1,17 +1,17 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { SearchRetriever } from "./retriever";
 
 const mockQdrantClient = {
-	search: mock(async () => []),
+	search: vi.fn(async () => []),
 };
 
 const mockEmbedder = {
-	embedQuery: mock(async () => new Array(384).fill(0.1)),
-	embedSparseQuery: mock(async () => ({ indices: [100, 200, 300], values: [0.5, 0.3, 0.2] })),
+	embedQuery: vi.fn(async () => new Array(384).fill(0.1)),
+	embedSparseQuery: vi.fn(async () => ({ indices: [100, 200, 300], values: [0.5, 0.3, 0.2] })),
 };
 
 const mockClassifier = {
-	classify: mock(() => ({ strategy: "dense", alpha: 1.0 })),
+	classify: vi.fn(() => ({ strategy: "dense", alpha: 1.0 })),
 };
 
 mock.module("@qdrant/js-client-rest", () => ({

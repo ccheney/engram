@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it,vi } from "vitest";
 import { SchemaManager, VECTOR_DIMENSIONS } from "./schema-manager";
 
-const mockCreateCollection = mock(async () => {});
-const mockDeleteCollection = mock(async () => {});
-const mockGetCollections = mock(async () => ({ collections: [] }));
+const mockCreateCollection = vi.fn(async () => {});
+const mockDeleteCollection = vi.fn(async () => {});
+const mockGetCollections = vi.fn(async () => ({ collections: [] }));
 
 mock.module("@qdrant/js-client-rest", () => {
 	return {

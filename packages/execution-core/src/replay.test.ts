@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it,vi } from "vitest";
 
 // Mock @engram/storage before importing
-const mockBlobStoreRead = mock(async () => "{}");
+const mockBlobStoreRead = vi.fn(async () => "{}");
 mock.module("@engram/storage", () => ({
 	createBlobStore: () => ({
 		read: mockBlobStoreRead,
-		write: mock(async () => {}),
+		write: vi.fn(async () => {}),
 	}),
 }));
 
@@ -18,7 +18,7 @@ describe("ReplayEngine", () => {
 	let engine: ReplayEngine;
 
 	beforeEach(() => {
-		mockFalkorQuery = mock(async () => []);
+		mockFalkorQuery = vi.fn(async () => []);
 		mockFalkor = {
 			query: mockFalkorQuery,
 		} as unknown as FalkorClient;

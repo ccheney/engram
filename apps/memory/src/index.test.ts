@@ -1,20 +1,20 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { server } from "./index";
 
 // Mock Falkor
 mock.module("@engram/storage", () => ({
 	createFalkorClient: () => ({
-		connect: mock(async () => {}),
-		query: mock(async () => []),
-		disconnect: mock(async () => {}),
+		connect: vi.fn(async () => {}),
+		query: vi.fn(async () => []),
+		disconnect: vi.fn(async () => {}),
 	}),
 }));
 
 // Mock MCP
 mock.module("@modelcontextprotocol/sdk/server/mcp.js", () => ({
 	McpServer: class {
-		tool = mock(() => {});
-		connect = mock(async () => {});
+		tool = vi.fn(() => {});
+		connect = vi.fn(async () => {});
 	},
 }));
 

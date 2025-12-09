@@ -1,10 +1,10 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import type { FalkorClient } from "@engram/storage";
 import { GraphMerger } from "./merger";
 
 describe("GraphMerger", () => {
 	it("should move edges and delete source", async () => {
-		const mockQuery = mock((query: string, _params: any) => {
+		const mockQuery = vi.fn((query: string, _params: any) => {
 			if (query.includes("MATCH (s {id: $sourceId})-[r]-(n)")) {
 				// Return one outgoing edge
 				return Promise.resolve([["LINKS_TO", true, "neighbor-123", { weight: 1 }]]);

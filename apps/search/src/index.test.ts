@@ -1,15 +1,15 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { SearchService } from "./index";
 
 // Mocks
-const mockSearch = mock(async () => [{ id: "1", score: 0.9 }]);
+const mockSearch = vi.fn(async () => [{ id: "1", score: 0.9 }]);
 const mockRetriever = { search: mockSearch };
-const mockIndexer = { indexNode: mock(async () => {}) };
-const mockSchemaManager = { ensureCollection: mock(async () => {}) };
+const mockIndexer = { indexNode: vi.fn(async () => {}) };
+const mockSchemaManager = { ensureCollection: vi.fn(async () => {}) };
 const mockKafka = {
-	createConsumer: mock(async () => ({
-		subscribe: mock(async () => {}),
-		run: mock(async () => {}),
+	createConsumer: vi.fn(async () => ({
+		subscribe: vi.fn(async () => {}),
+		run: vi.fn(async () => {}),
 	})),
 };
 

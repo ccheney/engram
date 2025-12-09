@@ -1,13 +1,13 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { CodeEmbedder } from "./code-embedder";
 
-const mockExtractor = mock(async (_input: string) => {
+const mockExtractor = vi.fn(async (_input: string) => {
 	return {
 		data: new Float32Array([0.9, 0.8, 0.7]),
 	};
 });
 
-const mockPipeline = mock(async (task: string, _model: string) => {
+const mockPipeline = vi.fn(async (task: string, _model: string) => {
 	if (task === "feature-extraction") {
 		return mockExtractor;
 	}

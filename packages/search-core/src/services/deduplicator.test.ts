@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { Deduplicator } from "./deduplicator";
 
 // Mock dependencies

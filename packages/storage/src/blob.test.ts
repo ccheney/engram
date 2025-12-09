@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it,vi } from "vitest";
 import { createBlobStore, FileSystemBlobStore, GCSBlobStore } from "./blob";
 
 // Mock fs/promises
 mock.module("node:fs/promises", () => ({
-	mkdir: mock(async () => {}),
-	writeFile: mock(async () => {}),
-	readFile: mock(async () => "file content"),
+	mkdir: vi.fn(async () => {}),
+	writeFile: vi.fn(async () => {}),
+	readFile: vi.fn(async () => "file content"),
 }));
 
 describe("Blob Storage", () => {
@@ -39,7 +39,7 @@ describe("Blob Storage", () => {
 
 		beforeEach(() => {
 			originalLog = console.log;
-			mockLog = mock(() => {});
+			mockLog = vi.fn(() => {});
 			console.log = mockLog;
 		});
 

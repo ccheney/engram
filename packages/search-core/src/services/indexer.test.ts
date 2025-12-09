@@ -1,13 +1,13 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { SearchIndexer } from "./indexer";
 
 const mockQdrantClient = {
-	upsert: mock(async () => {}),
+	upsert: vi.fn(async () => {}),
 };
 
 const mockEmbedder = {
-	embed: mock(async () => new Array(384).fill(0.1)),
-	embedSparse: mock(async () => ({ indices: [100, 200, 300], values: [0.5, 0.3, 0.2] })),
+	embed: vi.fn(async () => new Array(384).fill(0.1)),
+	embedSparse: vi.fn(async () => ({ indices: [100, 200, 300], values: [0.5, 0.3, 0.2] })),
 };
 
 mock.module("@qdrant/js-client-rest", () => ({

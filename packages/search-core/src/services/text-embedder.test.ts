@@ -1,7 +1,7 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { TextEmbedder } from "./text-embedder";
 
-const mockExtractor = mock(async (_input: string) => {
+const mockExtractor = vi.fn(async (_input: string) => {
 	// Return mock tensor
 	return {
 		data: new Float32Array([0.1, 0.2, 0.3]),
@@ -10,7 +10,7 @@ const mockExtractor = mock(async (_input: string) => {
 	};
 });
 
-const mockPipeline = mock(async (task: string, _model: string) => {
+const mockPipeline = vi.fn(async (task: string, _model: string) => {
 	if (task === "feature-extraction") {
 		return mockExtractor;
 	}
@@ -34,10 +34,10 @@ const mockTokenizer = (_text: string, _options?: unknown) => {
 };
 
 const mockAutoTokenizer = {
-	from_pretrained: mock(async () => mockTokenizer),
+	from_pretrained: vi.fn(async () => mockTokenizer),
 };
 
-mock.module("@huggingface/transformers", () => ({
+vi.mock("@huggingface/transformers", () => ({
 	pipeline: mockPipeline,
 	AutoTokenizer: mockAutoTokenizer,
 }));

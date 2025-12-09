@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "vitest";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { createFalkorClient, createKafkaClient } from "../../packages/storage/src/index";
 

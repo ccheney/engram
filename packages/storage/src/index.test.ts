@@ -1,13 +1,13 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { createFalkorClient, FalkorClient } from "./falkor";
 import { createKafkaClient, KafkaClient } from "./kafka";
 
 // Mock Redis
 const mockRedisClient = {
-	connect: mock(async () => {}),
-	disconnect: mock(async () => {}),
-	sendCommand: mock(async () => []),
-	on: mock(() => {}),
+	connect: vi.fn(async () => {}),
+	disconnect: vi.fn(async () => {}),
+	sendCommand: vi.fn(async () => []),
+	on: vi.fn(() => {}),
 };
 
 // Mock createClient
@@ -17,21 +17,21 @@ mock.module("redis", () => ({
 
 // Mock KafkaJS
 const mockProducer = {
-	connect: mock(async () => {}),
-	send: mock(async () => {}),
-	disconnect: mock(async () => {}),
+	connect: vi.fn(async () => {}),
+	send: vi.fn(async () => {}),
+	disconnect: vi.fn(async () => {}),
 };
 
 const mockConsumer = {
-	connect: mock(async () => {}),
-	subscribe: mock(async () => {}),
-	run: mock(async () => {}),
-	disconnect: mock(async () => {}),
+	connect: vi.fn(async () => {}),
+	subscribe: vi.fn(async () => {}),
+	run: vi.fn(async () => {}),
+	disconnect: vi.fn(async () => {}),
 };
 
 const mockKafka = {
-	producer: mock(() => mockProducer),
-	consumer: mock(() => mockConsumer),
+	producer: vi.fn(() => mockProducer),
+	consumer: vi.fn(() => mockConsumer),
 };
 
 mock.module("kafkajs", () => ({

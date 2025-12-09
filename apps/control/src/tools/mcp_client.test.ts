@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it,vi } from "vitest";
 import { McpToolAdapter, MultiMcpAdapter } from "./mcp_client";
 
 // Mock Client
-const mockConnect = mock(async () => {});
-const mockListTools = mock(async () => ({ tools: [{ name: "test-tool" }] }));
-const mockCallTool = mock(async () => ({ content: [] }));
+const mockConnect = vi.fn(async () => {});
+const mockListTools = vi.fn(async () => ({ tools: [{ name: "test-tool" }] }));
+const mockCallTool = vi.fn(async () => ({ content: [] }));
 
 mock.module("@modelcontextprotocol/sdk/client/index.js", () => ({
 	Client: class {

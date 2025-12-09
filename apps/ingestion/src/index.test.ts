@@ -1,8 +1,8 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { IngestionProcessor } from "./index";
 
 // Mock Kafka Client
-const mockSendEvent = mock(async () => {});
+const mockSendEvent = vi.fn(async () => {});
 const mockKafkaClient = {
 	sendEvent: mockSendEvent,
 };

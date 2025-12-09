@@ -1,21 +1,21 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { SessionManager } from "./manager";
 
 // Mocks
 const mockFalkor = {
-	connect: mock(async () => {}),
+	connect: vi.fn(async () => {}),
 };
 
 const mockAssembler = {
-	assembleContext: mock(async () => "context"),
+	assembleContext: vi.fn(async () => "context"),
 };
 
 const mockMcp = {
-	listTools: mock(async () => []),
+	listTools: vi.fn(async () => []),
 };
 
 // Mock DecisionEngine
-const mockHandleInput = mock(async () => {});
+const mockHandleInput = vi.fn(async () => {});
 mock.module("../engine/decision", () => ({
 	DecisionEngine: class {
 		start() {}
@@ -24,7 +24,7 @@ mock.module("../engine/decision", () => ({
 }));
 
 // Mock Initializer
-const mockEnsureSession = mock(async () => {});
+const mockEnsureSession = vi.fn(async () => {});
 mock.module("./initializer", () => ({
 	SessionInitializer: class {
 		ensureSession = mockEnsureSession;
@@ -33,7 +33,7 @@ mock.module("./initializer", () => ({
 
 describe("SessionManager", () => {
 	it("should spawn engine and dispatch input", async () => {
-		const manager = new SessionManager(mockAssembler as any, mockMcp as any, mockFalkor as any);
+		const manager = new SessionManager(mockAssembler as any,viMcp as any, mockFalkor as any);
 		const sessionId = "sess-1";
 		const input = "Hello";
 

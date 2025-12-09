@@ -1,9 +1,9 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { requireRole, UserRole } from "./rbac";
 
 // Mock Clerk auth
 mock.module("@clerk/nextjs/server", () => ({
-	auth: mock(() =>
+	auth: vi.fn(() =>
 		Promise.resolve({
 			userId: "user_123",
 			sessionClaims: {

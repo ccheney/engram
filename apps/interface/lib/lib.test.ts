@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { z } from "zod";
 import { apiError, apiSuccess } from "./api-response";
 import { validate } from "./validate";
@@ -36,7 +36,7 @@ describe("Interface Lib", () => {
 			const req = {
 				json: async () => ({ name: "test" }),
 			};
-			const next = mock(async (data) => apiSuccess(data));
+			const next = vi.fn(async (data) => apiSuccess(data));
 
 			const res = (await validate(schema)(req as any, next)) as any;
 
@@ -48,7 +48,7 @@ describe("Interface Lib", () => {
 			const req = {
 				json: async () => ({ name: 123 }),
 			};
-			const next = mock(async () => apiSuccess({}));
+			const next = vi.fn(async () => apiSuccess({}));
 
 			const res = (await validate(schema)(req as any, next)) as any;
 
@@ -63,7 +63,7 @@ describe("Interface Lib", () => {
 					throw new Error();
 				},
 			};
-			const next = mock(async () => apiSuccess({}));
+			const next = vi.fn(async () => apiSuccess({}));
 
 			const res = (await validate(schema)(req as any, next)) as any;
 

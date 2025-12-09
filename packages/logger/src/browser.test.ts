@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it,vi } from "vitest";
 
 // Mock pino before importing existing code
 mock.module("pino", () => {
@@ -45,7 +45,7 @@ import { createBrowserLogger } from "./browser";
 
 describe("Browser Logger", () => {
 	// Mock global fetch
-	const mockFetch = mock(async () => new Response("ok"));
+	const mockFetch = vi.fn(async () => new Response("ok"));
 	const originalFetch = global.fetch;
 	const originalWindow = global.window;
 	const originalDocument = global.document;
@@ -53,7 +53,7 @@ describe("Browser Logger", () => {
 	beforeEach(() => {
 		global.fetch = mockFetch;
 		global.window = {
-			addEventListener: mock(() => {}),
+			addEventListener: vi.fn(() => {}),
 		} as any;
 		global.document = {
 			visibilityState: "visible",

@@ -1,7 +1,7 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it,vi } from "vitest";
 import { Reranker } from "./reranker";
 
-const mockPipeline = mock(async (_task: string, _model: string) => {
+const mockPipeline = vi.fn(async (_task: string, _model: string) => {
 	return async (input: any) => {
 		// Mock scoring logic: if text_pair contains "relevant", give high score
 		const doc = input.text_pair;

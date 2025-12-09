@@ -1,12 +1,12 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { GraphPruner } from "./pruner";
 
 describe("GraphPruner", () => {
-	let mockFalkorQuery: ReturnType<typeof mock>;
-	let mockFalkorClient: { query: ReturnType<typeof mock> };
+	let mockFalkorQuery: Mock;
+	let mockFalkorClient: { query: Mock };
 
 	beforeEach(() => {
-		mockFalkorQuery = mock(async () => []);
+		mockFalkorQuery = vi.fn(async () => []);
 		mockFalkorClient = { query: mockFalkorQuery };
 	});
 
@@ -68,8 +68,8 @@ describe("GraphPruner", () => {
 
 	it("should archive nodes before pruning when archiveStore is provided", async () => {
 		const mockBlobStore = {
-			save: mock(async () => "file:///data/blobs/abc123"),
-			read: mock(async () => ""),
+			save: vi.fn(async () => "file:///data/blobs/abc123"),
+			read: vi.fn(async () => ""),
 		};
 
 		// Archive query returns nodes, then fetch/delete batches
@@ -107,8 +107,8 @@ describe("GraphPruner", () => {
 
 	it("should skip archive when no nodes to prune", async () => {
 		const mockBlobStore = {
-			save: mock(async () => "file:///data/blobs/abc123"),
-			read: mock(async () => ""),
+			save: vi.fn(async () => "file:///data/blobs/abc123"),
+			read: vi.fn(async () => ""),
 		};
 
 		// Archive query returns empty, fetch returns empty

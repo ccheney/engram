@@ -84,8 +84,8 @@ Based on research from [Analytics Vidhya](https://www.analyticsvidhya.com/blog/2
 - Use case: Billion-scale with precomputed doc representations
 
 **Tier 4: LLM Listwise (Premium)**
-- Claude Haiku / GPT-4o-mini via API
-- Use case: High-stakes queries, < 10 candidates
+- `grok-4-1-fast-reasoning` via xAI API
+- Use case: High-stakes queries, < 10 candidates, reasoning-intensive
 
 ---
 
@@ -214,7 +214,7 @@ export class ColBERTReranker {
 // packages/search-core/src/services/llm-reranker.ts
 
 export interface LLMRerankerOptions {
-  model: "claude-haiku" | "gpt-4o-mini";
+  model: "grok-4-1-fast-reasoning";
   maxCandidates: number;  // Max 10 for context efficiency
   systemPrompt?: string;  // Custom ranking instructions
 }
@@ -457,21 +457,20 @@ Tasks:
 - Cost attribution per query
 - Quality uplift metrics
 
-### Phase 5: Scale Preparation (Week 9+)
+### Phase 5: Caching & Optimization (Week 9+)
 
-**Goal**: Production hardening for billion-scale
+**Goal**: Reduce redundant computation, improve response times
 
 Tasks:
-- [ ] Document representation caching (Redis/in-memory)
-- [ ] Query result caching
+- [ ] Document representation caching (in-memory LRU)
+- [ ] Query result caching (Redis, 5min TTL)
 - [ ] Async reranking option (return RRF, refine async)
-- [ ] Distributed inference evaluation (Triton)
-- [ ] Load testing at 1K QPS
 
 **Deliverables**:
-- Production-ready reranking
+- 30%+ cache hit rate
 - < 200ms P99 latency
-- Linear scale path documented
+
+> **Deferred to Beta**: Distributed inference (Triton), load testing at 1K+ QPS. We'll revisit when we're not just one dude in a condo.
 
 ---
 
@@ -610,8 +609,9 @@ RERANK_MODEL_COLBERT=jinaai/jina-colbert-v2
 
 # LLM reranking (premium)
 LLM_RERANK_ENABLED=false
-LLM_RERANK_MODEL=claude-haiku
+LLM_RERANK_MODEL=grok-4-1-fast-reasoning
 LLM_RERANK_MAX_CANDIDATES=10
+XAI_API_KEY=your-xai-api-key
 ```
 
 ### 9.2 Runtime Configuration
@@ -640,7 +640,7 @@ export const RERANK_CONFIG = {
       batchSize: 8,
     },
     llm: {
-      model: "claude-haiku",
+      model: "grok-4-1-fast-reasoning",
       maxLatencyMs: 2000,
       maxCandidates: 10,
     },

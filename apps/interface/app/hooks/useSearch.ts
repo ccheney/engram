@@ -33,6 +33,12 @@ interface SearchResponse {
 	results: SearchResult[];
 }
 
+interface ApiResponse {
+	success: boolean;
+	data?: SearchResponse;
+	error?: string;
+}
+
 const fetcher = async (url: string, body: object): Promise<SearchResponse> => {
 	const res = await fetch(url, {
 		method: "POST",
@@ -44,7 +50,13 @@ const fetcher = async (url: string, body: object): Promise<SearchResponse> => {
 		throw new Error("Search failed");
 	}
 
-	return res.json();
+	const json: ApiResponse = await res.json();
+
+	if (!json.success || !json.data) {
+		throw new Error(json.error || "Search failed");
+	}
+
+	return json.data;
 };
 
 // UUID regex pattern

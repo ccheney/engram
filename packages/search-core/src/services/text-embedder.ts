@@ -1,8 +1,17 @@
 import { AutoTokenizer, pipeline } from "@huggingface/transformers";
+import { SpladeEmbedder } from "./splade-embedder";
+
+/**
+ * Sparse embedder type for TextEmbedder configuration.
+ * - "splade": Learned sparse embeddings via SPLADE (recommended)
+ * - "bm25": Traditional BM25-based term weighting (fallback)
+ */
+export type SparseEmbedderType = "splade" | "bm25";
 
 /**
  * BM25-based sparse vector generator for hybrid search.
  * Uses BERT tokenizer for vocabulary-based indexing and BM25 scoring.
+ * @deprecated Use SpladeEmbedder for better semantic matching
  */
 class BM25Sparse {
 	// BM25 parameters
@@ -97,10 +106,35 @@ class BM25Sparse {
 	}
 }
 
+/**
+ * Common interface for sparse embedders.
+ */
+interface SparseEmbedderInterface {
+	embed(text: string): Promise<{ indices: number[]; values: number[] }>;
+	embedQuery?(text: string): Promise<{ indices: number[]; values: number[] }>;
+}
+
 export class TextEmbedder {
 	private static instance: unknown;
 	private static modelName = "Xenova/multilingual-e5-small"; // ONNX quantized version
-	private sparseEmbedder = new BM25Sparse();
+	private sparseEmbedder: SparseEmbedderInterface;
+	private sparseType: SparseEmbedderType;
+
+	/**
+	 * Create a TextEmbedder with configurable sparse embedding strategy.
+	 * @param sparseType - "splade" (default, learned sparse) or "bm25" (traditional fallback)
+	 */
+	constructor(sparseType: SparseEmbedderType = "splade") {
+		this.sparseType = sparseType;
+		this.sparseEmbedder = sparseType === "splade" ? new SpladeEmbedder() : new BM25Sparse();
+	}
+
+	/**
+	 * Get the current sparse embedding type.
+	 */
+	getSparseType(): SparseEmbedderType {
+		return this.sparseType;
+	}
 
 	static async getInstance() {
 		if (!TextEmbedder.instance) {
@@ -134,9 +168,9 @@ export class TextEmbedder {
 	}
 
 	/**
-	 * Generate sparse vector using BM25-based term weighting.
-	 * Returns indices (BERT vocabulary token IDs) and values (BM25 weights).
-	 * Uses proper tokenization for better keyword matching in hybrid search.
+	 * Generate sparse vector using learned sparse embeddings (SPLADE) or BM25 fallback.
+	 * Returns indices (vocabulary token IDs) and values (term importance weights).
+	 * Uses SPLADE by default for better semantic matching in hybrid search.
 	 */
 	async embedSparse(text: string): Promise<{ indices: number[]; values: number[] }> {
 		return this.sparseEmbedder.embed(text);
@@ -144,9 +178,21 @@ export class TextEmbedder {
 
 	/**
 	 * Generate sparse vector for queries.
-	 * Currently identical to document embedding, but could be tuned differently.
+	 * Uses SPLADE's query embedding if available, otherwise same as document embedding.
 	 */
 	async embedSparseQuery(text: string): Promise<{ indices: number[]; values: number[] }> {
+		if (this.sparseEmbedder.embedQuery) {
+			return this.sparseEmbedder.embedQuery(text);
+		}
 		return this.sparseEmbedder.embed(text);
+	}
+
+	/**
+	 * Preload the sparse embedder model (useful for SPLADE which needs to load ONNX model).
+	 */
+	async preloadSparse(): Promise<void> {
+		if (this.sparseType === "splade" && this.sparseEmbedder instanceof SpladeEmbedder) {
+			await this.sparseEmbedder.preload();
+		}
 	}
 }

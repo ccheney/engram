@@ -19,17 +19,24 @@ const mockPipeline = vi.fn(async (task: string, _model: string) => {
 
 // Simple vocabulary-like mock for tokenizer
 // Returns token IDs based on simple hash for testing
-const mockTokenizer = (_text: string, _options?: unknown) => {
+const mockTokenizer = (_text: string, options?: { add_special_tokens?: boolean }) => {
 	// Simple mock: generate token IDs based on word positions
 	const words = _text.toLowerCase().split(/\s+/).filter(Boolean);
+	const addSpecial = options?.add_special_tokens !== false;
+
 	const ids = words.map((w, i) => {
 		// Create pseudo-stable IDs: hash-like value for each word
 		let hash = 0;
 		for (const c of w) hash = (hash * 31 + c.charCodeAt(0)) % 30000;
 		return hash || i + 100;
 	});
+
+	// Handle with or without special tokens
+	const fullIds = addSpecial ? [101, ...ids, 102] : ids;
+	const attentionMask = new Array(fullIds.length).fill(1);
 	return {
-		input_ids: { data: ids },
+		input_ids: { data: fullIds, dims: [1, fullIds.length] },
+		attention_mask: { data: attentionMask, dims: [1, fullIds.length] },
 	};
 };
 
@@ -37,9 +44,31 @@ const mockAutoTokenizer = {
 	from_pretrained: vi.fn(async () => mockTokenizer),
 };
 
+// Mock SPLADE model for when TextEmbedder uses SPLADE (default)
+const mockSpladeModel = vi.fn(async (inputs: { input_ids: unknown; attention_mask: unknown }) => {
+	const maskData = (inputs.attention_mask as { data: number[] }).data;
+	const seqLen = maskData.length;
+	const vocabSize = 30522;
+	const logitsData = new Float32Array(seqLen * vocabSize);
+	// Set some positive logits
+	const activeTokens = [100, 200, 1000];
+	for (let pos = 0; pos < seqLen; pos++) {
+		if (maskData[pos] === 0) continue;
+		for (const tokenId of activeTokens) {
+			logitsData[pos * vocabSize + tokenId] = 1.5;
+		}
+	}
+	return { logits: { data: logitsData, dims: [1, seqLen, vocabSize] } };
+});
+
+const mockAutoModel = {
+	from_pretrained: vi.fn(async () => mockSpladeModel),
+};
+
 vi.mock("@huggingface/transformers", () => ({
 	pipeline: mockPipeline,
 	AutoTokenizer: mockAutoTokenizer,
+	AutoModel: mockAutoModel,
 }));
 
 describe("TextEmbedder", () => {
@@ -63,9 +92,9 @@ describe("TextEmbedder", () => {
 		expect(mockExtractor).toHaveBeenCalledWith("query: search term", expect.any(Object));
 	});
 
-	describe("sparse embedding (BM25)", () => {
+	describe("sparse embedding (BM25 mode)", () => {
 		it("should generate sparse vectors with indices and values", async () => {
-			const embedder = new TextEmbedder();
+			const embedder = new TextEmbedder("bm25");
 			const sparse = await embedder.embedSparse("hello world test");
 
 			expect(sparse.indices).toBeInstanceOf(Array);
@@ -75,13 +104,13 @@ describe("TextEmbedder", () => {
 		});
 
 		it("should return empty for empty/whitespace text", async () => {
-			const embedder = new TextEmbedder();
+			const embedder = new TextEmbedder("bm25");
 			const sparse = await embedder.embedSparse("   ");
 			expect(sparse).toEqual({ indices: [], values: [] });
 		});
 
 		it("should produce consistent hashes for same terms", async () => {
-			const embedder = new TextEmbedder();
+			const embedder = new TextEmbedder("bm25");
 			const sparse1 = await embedder.embedSparse("hello world");
 			const sparse2 = await embedder.embedSparse("hello world");
 
@@ -90,7 +119,7 @@ describe("TextEmbedder", () => {
 		});
 
 		it("should have sorted indices", async () => {
-			const embedder = new TextEmbedder();
+			const embedder = new TextEmbedder("bm25");
 			const sparse = await embedder.embedSparse("the quick brown fox jumps over the lazy dog");
 
 			for (let i = 1; i < sparse.indices.length; i++) {
@@ -99,7 +128,7 @@ describe("TextEmbedder", () => {
 		});
 
 		it("should have positive weights", async () => {
-			const embedder = new TextEmbedder();
+			const embedder = new TextEmbedder("bm25");
 			const sparse = await embedder.embedSparse("testing sparse vectors");
 
 			for (const value of sparse.values) {
@@ -108,7 +137,7 @@ describe("TextEmbedder", () => {
 		});
 
 		it("should handle repeated terms with higher weights", async () => {
-			const embedder = new TextEmbedder();
+			const embedder = new TextEmbedder("bm25");
 			const singleWord = await embedder.embedSparse("test");
 			const repeatedWord = await embedder.embedSparse("test test test test");
 
@@ -118,6 +147,28 @@ describe("TextEmbedder", () => {
 			const repeatedWeight = repeatedWord.values[0];
 
 			expect(repeatedWeight).toBeGreaterThan(singleWeight);
+		});
+
+		it("should generate sparse query vectors", async () => {
+			const embedder = new TextEmbedder("bm25");
+			const sparse = await embedder.embedSparseQuery("search query");
+
+			expect(sparse.indices.length).toBeGreaterThan(0);
+			expect(sparse.values.length).toBe(sparse.indices.length);
+		});
+	});
+
+	describe("sparse embedding (SPLADE mode - default)", () => {
+		it("should generate sparse vectors with indices and values", async () => {
+			const embedder = new TextEmbedder(); // Default is SPLADE
+			expect(embedder.getSparseType()).toBe("splade");
+
+			const sparse = await embedder.embedSparse("hello world test");
+
+			expect(sparse.indices).toBeInstanceOf(Array);
+			expect(sparse.values).toBeInstanceOf(Array);
+			expect(sparse.indices.length).toBeGreaterThan(0);
+			expect(sparse.indices.length).toBe(sparse.values.length);
 		});
 
 		it("should generate sparse query vectors", async () => {

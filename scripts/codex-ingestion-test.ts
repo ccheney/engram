@@ -92,14 +92,10 @@ async function runCodexHeadless(prompt: string): Promise<void> {
 	console.log(`📍 Prompt: "${prompt}"\n`);
 
 	return new Promise((resolve, reject) => {
-		const codex = spawn(
-			"codex",
-			["exec", "--json", prompt],
-			{
-				cwd: process.cwd(),
-				env: process.env,
-			},
-		);
+		const codex = spawn("codex", ["exec", "--json", prompt], {
+			cwd: process.cwd(),
+			env: process.env,
+		});
 
 		let eventCount = 0;
 		let buffer = "";

@@ -91,4 +91,10 @@ export interface SearchResult {
 
 	/** Document payload */
 	payload?: SearchResultPayload;
+
+	/** Indicates if the search result is degraded (reranker failed) */
+	degraded?: boolean;
+
+	/** Reason for degradation if applicable */
+	degradedReason?: string;
 }

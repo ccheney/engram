@@ -10,10 +10,13 @@
 		"@engram/tsconfig": "workspace:*"
 	},
 	"dependencies": {
-		"zod": "^4.1.13",
+		"@engram/logger": "workspace:*",
 		"@huggingface/transformers": "^3.8.1",
 		"@qdrant/js-client-rest": "^1.16.2",
-		"p-queue": "^8.0.1"
+		"ioredis": "^5.8.2",
+		"p-queue": "^8.0.1",
+		"prom-client": "^15.1.3",
+		"zod": "^4.1.13"
 	},
 	"scripts": {
 		"build": "echo 'Build success'",

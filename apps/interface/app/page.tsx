@@ -1,10 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { EngramLogo } from "./components/EngramLogo";
 import { SearchInput } from "./components/SearchInput";
 import { SearchResults } from "./components/SearchResults";
+import { SearchSettings, type SearchSettingsState } from "./components/SearchSettings";
 import { SessionBrowser } from "./components/SessionBrowser";
 import { useSearch } from "./hooks/useSearch";
 
@@ -60,12 +61,66 @@ function Particles() {
 	);
 }
 
+// Default search settings
+const DEFAULT_SETTINGS: SearchSettingsState = {
+	rerank: true,
+	forceTier: undefined, // auto
+	rerankDepth: 30,
+	latencyBudgetMs: undefined,
+};
+
+// Load settings from localStorage
+const loadSettings = (): SearchSettingsState => {
+	if (typeof window === "undefined") return DEFAULT_SETTINGS;
+	try {
+		const saved = localStorage.getItem("engram-search-settings");
+		return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+	} catch {
+		return DEFAULT_SETTINGS;
+	}
+};
+
+// Save settings to localStorage
+const saveSettings = (settings: SearchSettingsState) => {
+	if (typeof window === "undefined") return;
+	try {
+		localStorage.setItem("engram-search-settings", JSON.stringify(settings));
+	} catch {
+		// Ignore storage errors
+	}
+};
+
 export default function HomePage() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [mounted, setMounted] = useState(false);
+	const [searchSettings, setSearchSettings] = useState<SearchSettingsState>(DEFAULT_SETTINGS);
 
-	// Use the search hook
-	const { results, meta, isLoading, error, mode, detectedUUID, isDebouncing } = useSearch(searchQuery);
+	// Load settings on mount
+	useEffect(() => {
+		setSearchSettings(loadSettings());
+	}, []);
+
+	// Handle settings change
+	const handleSettingsChange = useCallback((newSettings: SearchSettingsState) => {
+		setSearchSettings(newSettings);
+		saveSettings(newSettings);
+	}, []);
+
+	// Convert UI settings to API settings format
+	const apiSettings = {
+		rerank: searchSettings.rerank,
+		rerankTier: searchSettings.forceTier === "auto" ? undefined : searchSettings.forceTier,
+		rerankDepth: searchSettings.rerankDepth,
+		latencyBudgetMs: searchSettings.latencyBudgetMs,
+	};
+
+	// Use the search hook with settings
+	const { results, meta, isLoading, error, mode, detectedUUID, isDebouncing } = useSearch(
+		searchQuery,
+		{
+			settings: apiSettings,
+		},
+	);
 
 	useEffect(() => {
 		setMounted(true);
@@ -206,17 +261,27 @@ export default function HomePage() {
 						transform: mounted ? "translateY(0)" : "translateY(2rem)",
 					}}
 				>
-					{/* Unified Search Input */}
-					<div style={{ marginBottom: "2rem" }}>
-						<SearchInput
-							value={searchQuery}
-							onChange={setSearchQuery}
-							mode={mode}
-							detectedUUID={detectedUUID}
-							isLoading={isLoading}
-							isDebouncing={isDebouncing}
-							resultCount={results.length}
-						/>
+					{/* Search Input + Settings Row */}
+					<div
+						style={{
+							display: "flex",
+							alignItems: "flex-start",
+							gap: "12px",
+							marginBottom: "2rem",
+						}}
+					>
+						<div style={{ flex: 1 }}>
+							<SearchInput
+								value={searchQuery}
+								onChange={setSearchQuery}
+								mode={mode}
+								detectedUUID={detectedUUID}
+								isLoading={isLoading}
+								isDebouncing={isDebouncing}
+								resultCount={results.length}
+							/>
+						</div>
+						<SearchSettings settings={searchSettings} onChange={handleSettingsChange} />
 					</div>
 
 					{/* Search Results (shown above sessions when searching) */}

@@ -91,14 +91,10 @@ async function runGeminiHeadless(prompt: string): Promise<void> {
 	console.log(`📍 Prompt: "${prompt}"\n`);
 
 	return new Promise((resolve, reject) => {
-		const gemini = spawn(
-			"gemini",
-			["--output-format", "stream-json", "-p", prompt, "--sandbox"],
-			{
-				cwd: process.cwd(),
-				env: process.env,
-			},
-		);
+		const gemini = spawn("gemini", ["--output-format", "stream-json", "-p", prompt, "--sandbox"], {
+			cwd: process.cwd(),
+			env: process.env,
+		});
 
 		let eventCount = 0;
 		let buffer = "";

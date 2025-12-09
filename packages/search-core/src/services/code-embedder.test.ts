@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CodeEmbedder } from "./code-embedder";
 
 const mockExtractor = vi.fn(async (_input: string) => {

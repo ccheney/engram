@@ -63,7 +63,7 @@ describe("RerankerRouter", () => {
 			it("should route queries with operators AND long text to accurate tier", () => {
 				// Score: length > 50 (+2) + operators (+2) + word count > 8 (+1) = 5 (complex)
 				const result = router.route(
-					"authentication AND authorization NOT oauth implementation strategy patterns examples best practices"
+					"authentication AND authorization NOT oauth implementation strategy patterns examples best practices",
 				);
 				expect(result.tier).toBe("accurate");
 			});

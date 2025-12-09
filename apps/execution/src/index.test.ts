@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 // Mock dependencies BEFORE import
 mock.module("@modelcontextprotocol/sdk/server/mcp.js", () => ({

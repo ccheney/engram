@@ -642,7 +642,6 @@ function TurnHeader({ turnNumber }: { turnNumber: string }) {
 	);
 }
 
-
 // ToolCall card - Violet/Purple palette (matches ToolCall nodes in graph)
 // File operations now show file_path directly on the ToolCall
 function ToolCallCard({

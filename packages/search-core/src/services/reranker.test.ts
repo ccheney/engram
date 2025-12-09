@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Reranker } from "./reranker";
 
 const mockPipeline = vi.fn(async (_task: string, _model: string) => {

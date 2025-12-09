@@ -20,6 +20,12 @@ export interface SearchResult {
 	rrfScore?: number;
 	/** Cross-encoder relevance score, present if reranking was applied */
 	rerankerScore?: number;
+	/** Which reranker tier was used */
+	rerankTier?: "fast" | "accurate" | "code" | "llm";
+	/** Indicates if the result is degraded (reranker failed) */
+	degraded?: boolean;
+	/** Reason for degradation if applicable */
+	degradedReason?: string;
 	payload: SearchResultPayload;
 }
 
@@ -28,10 +34,18 @@ interface SearchFilters {
 	session_id?: string;
 }
 
+interface SearchSettings {
+	rerank?: boolean;
+	rerankTier?: "fast" | "accurate" | "code" | "llm";
+	rerankDepth?: number;
+	latencyBudgetMs?: number;
+}
+
 interface UseSearchOptions {
 	debounceMs?: number;
 	limit?: number;
 	filters?: SearchFilters;
+	settings?: SearchSettings;
 }
 
 export interface RerankerMeta {
@@ -58,7 +72,15 @@ interface ApiResponse {
 	error?: string;
 }
 
-const fetcher = async (url: string, body: object): Promise<SearchResponse> => {
+const fetcher = async (
+	url: string,
+	body: {
+		query: string;
+		limit: number;
+		filters?: SearchFilters;
+		settings?: SearchSettings;
+	},
+): Promise<SearchResponse> => {
 	const res = await fetch(url, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -84,7 +106,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export type SearchMode = "idle" | "uuid" | "search";
 
 export function useSearch(query: string, options: UseSearchOptions = {}) {
-	const { debounceMs = 300, limit = 10, filters } = options;
+	const { debounceMs = 300, limit = 10, filters, settings } = options;
 
 	const [debouncedQuery, setDebouncedQuery] = useState(query);
 
@@ -109,17 +131,18 @@ export function useSearch(query: string, options: UseSearchOptions = {}) {
 	const shouldSearch = mode === "search" && debouncedQuery.trim().length >= 3;
 
 	const { data, error, isLoading, isValidating } = useSWR(
-		shouldSearch ? ["/api/search", debouncedQuery, limit, filters] : null,
-		([url, q, l, f]) =>
+		shouldSearch ? ["/api/search", debouncedQuery, limit, filters, settings] : null,
+		([url, q, l, f, s]) =>
 			fetcher(url, {
-				query: q,
-				limit: l,
-				filters: f,
+				query: q as string,
+				limit: l as number,
+				filters: f as SearchFilters | undefined,
+				settings: s as SearchSettings | undefined,
 			}),
 		{
 			revalidateOnFocus: false,
 			dedupingInterval: 1000,
-		}
+		},
 	);
 
 	// Get the detected UUID for navigation

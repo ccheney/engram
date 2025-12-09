@@ -4,6 +4,7 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 export const VECTOR_DIMENSIONS = {
 	text: 384, // e5-small
 	code: 768, // nomic-embed-text-v1
+	colbert: 128, // jina-colbert-v2 token dimension
 } as const;
 
 export class SchemaManager {
@@ -30,6 +31,14 @@ export class SchemaManager {
 					code_dense: {
 						size: VECTOR_DIMENSIONS.code, // nomic-embed-text-v1: 768 dimensions
 						distance: "Cosine",
+					},
+					// ColBERT multivector for late interaction reranking
+					colbert: {
+						size: VECTOR_DIMENSIONS.colbert, // jina-colbert-v2: 128d token embeddings
+						distance: "Cosine",
+						multivector_config: {
+							comparator: "max_sim", // MaxSim for late interaction
+						},
 					},
 				},
 				sparse_vectors: {

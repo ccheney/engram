@@ -116,7 +116,9 @@ describe("GeminiParser", () => {
 
 			expect(result).not.toBeNull();
 			expect(result?.type).toBe("content");
-			expect(result?.content).toContain("[Tool Result: list_directory-1765239217764-b5bcb64ac480c]");
+			expect(result?.content).toContain(
+				"[Tool Result: list_directory-1765239217764-b5bcb64ac480c]",
+			);
 			expect(result?.content).toContain("(success)");
 			expect(result?.content).toContain("Listed 22 item(s)");
 		});

@@ -48,7 +48,7 @@ export function SearchInput({
 				router.push(`/session/${detectedUUID}`);
 			}
 		},
-		[detectedUUID, router]
+		[detectedUUID, router],
 	);
 
 	const handleKeyDown = useCallback(
@@ -57,7 +57,7 @@ export function SearchInput({
 				router.push(`/session/${detectedUUID}`);
 			}
 		},
-		[detectedUUID, router]
+		[detectedUUID, router],
 	);
 
 	// Determine status indicator

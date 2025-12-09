@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SessionManager } from "./manager";
 
 // Mocks
@@ -33,7 +33,7 @@ mock.module("./initializer", () => ({
 
 describe("SessionManager", () => {
 	it("should spawn engine and dispatch input", async () => {
-		const manager = new SessionManager(mockAssembler as any,viMcp as any, mockFalkor as any);
+		const manager = new SessionManager(mockAssembler as any, viMcp as any, mockFalkor as any);
 		const sessionId = "sess-1";
 		const input = "Hello";
 

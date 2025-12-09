@@ -79,12 +79,18 @@ async function sendToIngestion(event: ClaudeStreamEvent): Promise<void> {
 			const error = await response.text();
 			console.error(`❌ Ingestion failed: ${response.status} - ${error}`);
 		} else {
-			const eventType = event.type === "assistant" ? "🤖 assistant" :
-				event.type === "system" ? `⚙️ system:${event.subtype}` :
-				event.type === "result" ? "✅ result" :
-				event.type === "tool_use" ? `🔧 tool:${event.tool_use?.name}` :
-				event.type === "tool_result" ? "📋 tool_result" :
-				`📦 ${event.type}`;
+			const eventType =
+				event.type === "assistant"
+					? "🤖 assistant"
+					: event.type === "system"
+						? `⚙️ system:${event.subtype}`
+						: event.type === "result"
+							? "✅ result"
+							: event.type === "tool_use"
+								? `🔧 tool:${event.tool_use?.name}`
+								: event.type === "tool_result"
+									? "📋 tool_result"
+									: `📦 ${event.type}`;
 			console.log(`  → Ingested: ${eventType}`);
 		}
 	} catch (err) {
@@ -99,16 +105,24 @@ async function runClaudeHeadless(prompt: string): Promise<void> {
 	console.log(`📍 Prompt: "${prompt}"\n`);
 
 	return new Promise((resolve, reject) => {
-		const claude = spawn("claude", [
-			"-p", prompt,
-			"--output-format", "stream-json",
-			"--verbose",
-			"--max-turns", "2",
-			"--allowedTools", "Read,Glob,Grep",
-		], {
-			cwd: process.cwd(),
-			env: process.env,
-		});
+		const claude = spawn(
+			"claude",
+			[
+				"-p",
+				prompt,
+				"--output-format",
+				"stream-json",
+				"--verbose",
+				"--max-turns",
+				"2",
+				"--allowedTools",
+				"Read,Glob,Grep",
+			],
+			{
+				cwd: process.cwd(),
+				env: process.env,
+			},
+		);
 
 		let eventCount = 0;
 		let buffer = "";
@@ -155,6 +169,8 @@ async function runClaudeHeadless(prompt: string): Promise<void> {
 }
 
 // Main execution
-const prompt = process.argv[2] || "Read the package.json file in the current directory and tell me what the project name is.";
+const prompt =
+	process.argv[2] ||
+	"Read the package.json file in the current directory and tell me what the project name is.";
 
 runClaudeHeadless(prompt).catch(console.error);

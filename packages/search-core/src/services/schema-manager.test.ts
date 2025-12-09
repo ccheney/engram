@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it,vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SchemaManager, VECTOR_DIMENSIONS } from "./schema-manager";
 
 const mockCreateCollection = vi.fn(async () => {});

@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FalkorClient } from "@engram/storage";
 import { SessionInitializer } from "./initializer";
 

@@ -101,8 +101,7 @@ async function analyzeOverlap(
 			if (bm25Set.has(idx)) overlap++;
 		}
 
-		const jaccardSimilarity =
-			overlap / (spladeSet.size + bm25Set.size - overlap);
+		const jaccardSimilarity = overlap / (spladeSet.size + bm25Set.size - overlap);
 
 		console.log(`\nText: "${text.substring(0, 50)}..."`);
 		console.log(`  SPLADE indices: ${spladeSet.size}`);
@@ -211,8 +210,12 @@ async function main() {
 	// Summary
 	console.log("\n📋 Summary");
 	console.log("=".repeat(50));
-	console.log(`SPLADE is ${(bm25Result.avgLatencyMs / spladeResult.avgLatencyMs).toFixed(1)}x ${spladeResult.avgLatencyMs < bm25Result.avgLatencyMs ? "faster" : "slower"} than BM25`);
-	console.log(`SPLADE produces ${spladeResult.avgNonZeroDims} non-zero dims vs BM25's ${bm25Result.avgNonZeroDims}`);
+	console.log(
+		`SPLADE is ${(bm25Result.avgLatencyMs / spladeResult.avgLatencyMs).toFixed(1)}x ${spladeResult.avgLatencyMs < bm25Result.avgLatencyMs ? "faster" : "slower"} than BM25`,
+	);
+	console.log(
+		`SPLADE produces ${spladeResult.avgNonZeroDims} non-zero dims vs BM25's ${bm25Result.avgNonZeroDims}`,
+	);
 	console.log(`SPLADE sparsity: ${spladeResult.avgSparsity}% vs BM25: ${bm25Result.avgSparsity}%`);
 }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFalkorClient, FalkorClient } from "./falkor";
 import { createKafkaClient, KafkaClient } from "./kafka";
 

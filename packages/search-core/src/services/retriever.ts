@@ -1,4 +1,5 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
+import { createLogger } from "@engram/logger";
 import { DEFAULT_SEARCH_CONFIG } from "../config";
 import type { SearchQuery } from "../models/schema";
 import { QueryClassifier } from "./classifier";
@@ -26,6 +27,7 @@ export class SearchRetriever {
 	private classifier: QueryClassifier;
 	private reranker: Reranker;
 	private collectionName = "engram_memory";
+	private logger = createLogger({ component: "SearchRetriever" });
 
 	constructor(url: string = "http://localhost:6333") {
 		this.client = new QdrantClient({ url });
@@ -104,9 +106,7 @@ export class SearchRetriever {
 		else if (strategy === "hybrid") {
 			// Generate both dense and sparse query vectors in parallel
 			const [denseVector, sparseVector] = await Promise.all([
-				isCodeSearch
-					? this.codeEmbedder.embedQuery(text)
-					: this.textEmbedder.embedQuery(text),
+				isCodeSearch ? this.codeEmbedder.embedQuery(text) : this.textEmbedder.embedQuery(text),
 				this.textEmbedder.embedSparseQuery(text),
 			]);
 
@@ -157,6 +157,16 @@ export class SearchRetriever {
 
 		// Apply reranking if enabled
 		if (rerank && rawResults.length > 0) {
+			const rerankStartTime = Date.now();
+
+			this.logger.debug({
+				msg: "Starting reranking",
+				strategy,
+				candidateCount: rawResults.length,
+				limit,
+				rerankDepth,
+			});
+
 			try {
 				// Extract content for reranking
 				const documents = rawResults.map((r) => {
@@ -170,6 +180,26 @@ export class SearchRetriever {
 					createTimeout(RERANK_TIMEOUT_MS),
 				]);
 
+				const rerankLatencyMs = Date.now() - rerankStartTime;
+
+				// Calculate score statistics
+				const originalScores = rawResults.slice(0, limit).map((r) => r.score);
+				const rerankedScores = reranked.map((r) => r.score);
+				const avgOriginalScore = originalScores.reduce((a, b) => a + b, 0) / originalScores.length;
+				const avgRerankedScore = rerankedScores.reduce((a, b) => a + b, 0) / rerankedScores.length;
+				const scoreImprovement = avgRerankedScore - avgOriginalScore;
+
+				this.logger.info({
+					msg: "Reranking completed",
+					strategy,
+					candidateCount: rawResults.length,
+					returnedCount: reranked.length,
+					rerankLatencyMs,
+					avgOriginalScore: avgOriginalScore.toFixed(3),
+					avgRerankedScore: avgRerankedScore.toFixed(3),
+					scoreImprovement: scoreImprovement.toFixed(3),
+				});
+
 				// Map reranked results back to original results with scores
 				return reranked.map((r) => {
 					const original = rawResults[r.originalIndex];
@@ -181,13 +211,37 @@ export class SearchRetriever {
 					};
 				});
 			} catch (error) {
+				const rerankLatencyMs = Date.now() - rerankStartTime;
+				const errorMessage = error instanceof Error ? error.message : String(error);
+
 				// Circuit breaker: fall back to RRF results on timeout or error
-				console.warn("[SearchRetriever] Reranking fallback:", error instanceof Error ? error.message : error);
-				return rawResults.slice(0, limit);
+				this.logger.error({
+					msg: "Reranking failed - graceful degradation to original results",
+					strategy,
+					candidateCount: rawResults.length,
+					rerankLatencyMs,
+					error: errorMessage,
+					stack: error instanceof Error ? error.stack : undefined,
+				});
+
+				// Return results with degradation flags
+				return rawResults.slice(0, limit).map((result) => ({
+					...result,
+					degraded: true,
+					degradedReason: `Reranker failed: ${errorMessage}`,
+				}));
 			}
 		}
 
 		// No reranking - return raw results trimmed to limit
+		this.logger.debug({
+			msg: "Skipping reranking",
+			strategy,
+			resultCount: rawResults.length,
+			limit,
+			rerankEnabled: rerank,
+		});
+
 		return rawResults.slice(0, limit);
 	}
 }

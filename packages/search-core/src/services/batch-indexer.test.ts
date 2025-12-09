@@ -1,4 +1,4 @@
-import { describe, expect, it,vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BatchIndexer } from "./batch-indexer";
 import type { SearchIndexer } from "./indexer";
 

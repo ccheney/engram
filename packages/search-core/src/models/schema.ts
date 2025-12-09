@@ -33,6 +33,15 @@ export type VectorPoint = z.infer<typeof VectorPointSchema>;
 export const SearchTypeEnum = VectorPointSchema.shape.payload.shape.type;
 export type SearchType = z.infer<typeof SearchTypeEnum>;
 
+/**
+ * Reranker tier determines which model is used for cross-encoder scoring.
+ * - fast: Optimized for speed (< 50ms), uses lightweight model
+ * - accurate: Higher quality scoring for complex queries
+ * - code: Specialized for code search queries
+ * - llm: Premium LLM-based listwise reranking (highest latency)
+ */
+export type RerankerTier = "fast" | "accurate" | "code" | "llm";
+
 export interface SearchQuery {
 	text: string;
 	limit?: number;
@@ -43,5 +52,43 @@ export interface SearchQuery {
 		type?: SearchType;
 		time_range?: { start: number; end: number };
 	};
-	strategy?: "hybrid" | "dense" | "sparse"; // Made optional
+	strategy?: "hybrid" | "dense" | "sparse";
+
+	// Reranking options
+	/** Enable/disable reranking. Default: true */
+	rerank?: boolean;
+	/** Reranker tier to use. Default: auto-routed based on query */
+	rerankTier?: RerankerTier;
+	/** Number of candidates to fetch for reranking. Default: 30 */
+	rerankDepth?: number;
+}
+
+/** Payload returned in search results */
+export interface SearchResultPayload {
+	content: string;
+	node_id: string;
+	session_id: string;
+	type: SearchType;
+	timestamp: number;
+	file_path?: string;
+}
+
+/** Search result with optional reranking scores */
+export interface SearchResult {
+	id: string | number;
+
+	/** Final score used for ranking (rerankerScore if reranked, otherwise original) */
+	score: number;
+
+	/** Original RRF/dense/sparse score before reranking */
+	rrfScore?: number;
+
+	/** Cross-encoder relevance score (0-1), present if reranking was applied */
+	rerankerScore?: number;
+
+	/** Which reranker tier was used, present if reranking was applied */
+	rerankTier?: RerankerTier;
+
+	/** Document payload */
+	payload?: SearchResultPayload;
 }

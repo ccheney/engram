@@ -3,13 +3,18 @@ import { DEFAULT_SEARCH_CONFIG } from "../config";
 import type { SearchQuery } from "../models/schema";
 import { QueryClassifier } from "./classifier";
 import { CodeEmbedder } from "./code-embedder";
+import { Reranker } from "./reranker";
 import { TextEmbedder } from "./text-embedder";
+
+/** Default depth for reranking - how many candidates to fetch before reranking */
+const DEFAULT_RERANK_DEPTH = 30;
 
 export class SearchRetriever {
 	private client: QdrantClient;
 	private textEmbedder: TextEmbedder;
 	private codeEmbedder: CodeEmbedder;
 	private classifier: QueryClassifier;
+	private reranker: Reranker;
 	private collectionName = "engram_memory";
 
 	constructor(url: string = "http://localhost:6333") {
@@ -17,6 +22,7 @@ export class SearchRetriever {
 		this.textEmbedder = new TextEmbedder();
 		this.codeEmbedder = new CodeEmbedder();
 		this.classifier = new QueryClassifier();
+		this.reranker = new Reranker();
 	}
 
 	async search(query: SearchQuery) {
@@ -26,7 +32,12 @@ export class SearchRetriever {
 			strategy: userStrategy,
 			filters,
 			threshold,
+			rerank = true,
+			rerankDepth = DEFAULT_RERANK_DEPTH,
 		} = query;
+
+		// Determine effective limit: oversample if reranking is enabled
+		const fetchLimit = rerank ? Math.max(rerankDepth, limit) : limit;
 
 		// Determine strategy using classifier if not provided
 		let strategy = userStrategy;
@@ -57,6 +68,9 @@ export class SearchRetriever {
 			}
 		}
 
+		// Fetch raw results based on strategy
+		let rawResults: Array<{ id: string | number; score: number; payload?: unknown }> = [];
+
 		// Dense Search
 		if (strategy === "dense") {
 			const vector = isCodeSearch
@@ -69,16 +83,15 @@ export class SearchRetriever {
 					vector: vector,
 				},
 				filter: Object.keys(filter).length > 0 ? filter : undefined,
-				limit,
+				limit: fetchLimit,
 				with_payload: true,
 				score_threshold: effectiveThreshold,
 			});
 
-			return denseResults;
+			rawResults = denseResults;
 		}
-
 		// Hybrid Search (Dense + Sparse with RRF Fusion)
-		if (strategy === "hybrid") {
+		else if (strategy === "hybrid") {
 			// Generate both dense and sparse query vectors in parallel
 			const [denseVector, sparseVector] = await Promise.all([
 				isCodeSearch
@@ -93,7 +106,7 @@ export class SearchRetriever {
 					{
 						query: denseVector,
 						using: vectorName,
-						limit: limit * 2, // Oversample for fusion
+						limit: fetchLimit * 2, // Oversample for fusion
 					},
 					{
 						query: {
@@ -101,21 +114,20 @@ export class SearchRetriever {
 							values: sparseVector.values,
 						},
 						using: "sparse",
-						limit: limit * 2,
+						limit: fetchLimit * 2,
 					},
 				],
 				query: { fusion: "rrf" },
 				filter: Object.keys(filter).length > 0 ? filter : undefined,
-				limit,
+				limit: fetchLimit,
 				with_payload: true,
 				// No score_threshold with RRF (scores are rank-based, not similarity-based)
 			});
 
-			return results.points;
+			rawResults = results.points;
 		}
-
 		// Sparse Search
-		if (strategy === "sparse") {
+		else if (strategy === "sparse") {
 			const sparseVector = await this.textEmbedder.embedSparseQuery(text);
 
 			const results = await this.client.query(this.collectionName, {
@@ -125,12 +137,38 @@ export class SearchRetriever {
 				},
 				using: "sparse",
 				filter: Object.keys(filter).length > 0 ? filter : undefined,
-				limit,
+				limit: fetchLimit,
 				with_payload: true,
 				score_threshold: effectiveThreshold,
 			});
 
-			return results.points;
+			rawResults = results.points;
 		}
+
+		// Apply reranking if enabled
+		if (rerank && rawResults.length > 0) {
+			// Extract content for reranking
+			const documents = rawResults.map((r) => {
+				const payload = r.payload as { content?: string } | undefined;
+				return payload?.content ?? "";
+			});
+
+			// Rerank and get top results
+			const reranked = await this.reranker.rerank(text, documents, limit);
+
+			// Map reranked results back to original results with scores
+			return reranked.map((r) => {
+				const original = rawResults[r.originalIndex];
+				return {
+					...original,
+					score: r.score, // Use reranker score as final score
+					rrfScore: original.score, // Preserve original RRF/dense score
+					rerankerScore: r.score,
+				};
+			});
+		}
+
+		// No reranking - return raw results trimmed to limit
+		return rawResults.slice(0, limit);
 	}
 }

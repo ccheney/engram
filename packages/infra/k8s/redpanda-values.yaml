@@ -1,29 +1,57 @@
-# Redpanda Helm Chart Values for GKE Autopilot
+# Redpanda Helm Chart Values for Engram on GKE Autopilot
 # Chart: redpanda/redpanda
+# Repo: https://charts.redpanda.com
+#
+# Install:
+#   helm repo add redpanda https://charts.redpanda.com
+#   helm install redpanda redpanda/redpanda -n engram -f redpanda-values.yaml
+#
+# Connection: redpanda.engram.svc.cluster.local:9092
 
 statefulset:
-  replicas: 3
-  
+  replicas: 1
+
+image:
+  repository: docker.redpanda.com/redpandadata/redpanda
+  tag: v24.2.1
+
 storage:
   persistentVolume:
     enabled: true
-    size: 100Gi
-    storageClass: "standard-rwo" # GKE Standard
+    size: 50Gi
+    storageClass: standard-rwo
 
 resources:
   cpu:
-    cores: 2
+    cores: 1
   memory:
     container:
-      max: 4Gi
+      max: 2Gi
+    redpanda:
+      memory: 1536Mi
+      reserveMemory: 512Mi
 
-# Expose internally via ClusterIP (headless service)
+# Internal access only
 external:
   enabled: false
 
-# Enable Tiered Storage (GCS) if needed
-storage:
-  tieredConfig:
-    cloud_storage_enabled: "true"
-    cloud_storage_bucket: "engram-redpanda-tiered-storage"
-    cloud_storage_region: "us-central1"
+listeners:
+  kafka:
+    port: 9092
+  admin:
+    port: 9644
+  schemaRegistry:
+    enabled: true
+    port: 8081
+
+# Monitoring
+monitoring:
+  enabled: false
+
+# Console UI (optional)
+console:
+  enabled: false
+
+# Resource labels
+commonLabels:
+  app.kubernetes.io/part-of: engram

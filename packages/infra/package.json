@@ -14,6 +14,7 @@
 	"scripts": {
 		"build": "echo 'Pulumi compiles TypeScript directly'",
 		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
 		"preview": "pulumi preview",
 		"up": "pulumi up",
 		"destroy": "pulumi destroy"
